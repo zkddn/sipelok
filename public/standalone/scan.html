@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scan Presensi · SIPELOK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/gaya.css" />
+<style>
+  body{background:var(--paper)}
+  .shell{max-width:440px;margin:0 auto;padding:22px 18px 60px}
+  .foto-prev{width:100%;border-radius:14px;overflow:hidden;border:1px solid rgba(12,36,49,.12)}
+  .foto-prev img{width:100%;height:230px;object-fit:cover;display:block}
+  .unggah{border:2px dashed rgba(12,36,49,.25);border-radius:14px;padding:26px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+  .unggah:hover{border-color:var(--brand-500);background:var(--brand-50)}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="row" style="justify-content:space-between">
+    <a class="brandmark" href="index.html" style="color:var(--ink-900)">
+      <span class="mk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>
+      <span><b>SIPELOK</b><small style="color:var(--ink-500)">Scan Presensi</small></span>
+    </a>
+    <span class="badge mist tnum" id="jamKecil">--.--</span>
+  </div>
+
+  <div id="konten" class="mt-3"></div>
+</div>
+
+<script src="js/util.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const token = (params.get("token") || "").toUpperCase();
+  let sesi = null, jenis = null, foto = null, petugasId = "", berhasil = null;
+
+  function jam() { const d = new Date(); el("#jamKecil").textContent = pad(d.getHours()) + "." + pad(d.getMinutes()); }
+
+  function render() {
+    const box = el("#konten");
+    if (!token) { box.innerHTML = kartuError("Tautan tidak lengkap", "Gunakan QR pada Layar Loket untuk membuka halaman presensi."); return; }
+    sesi = findSession(token);
+    if (!sesi) { box.innerHTML = kartuError("QR tidak dikenal / kedaluwarsa", "Minta petugas loket menekan “Perbarui QR”, lalu scan ulang."); return; }
+    if (sesi.date !== todayStr()) { box.innerHTML = kartuError("QR sudah tidak berlaku", "QR ini untuk tanggal " + fmtDateShort(sesi.date) + ". Scan QR hari ini di layar loket."); return; }
+    if (berhasil) { renderSukses(box); return; }
+    renderForm(box);
+  }
+
+  function kartuError(judul, desc) {
+    return '<div class="card pad center rise">' +
+      '<span style="font-size:2.4rem">⚠️</span><h2 class="display mt-1">' + judul + '</h2>' +
+      '<p class="small muted mt-1">' + desc + '</p>' +
+      '<a class="btn primary mt-2" href="index.html">Ke Beranda</a></div>';
+  }
+
+  function renderForm(box) {
+    const def = SHIFT[sesi.shift];
+    const sudah = petugasId ? findRecord(sesi.date, sesi.shift, petugasId) : null;
+    jenis = sudah && sudah.keluar ? "selesai" : (sudah ? "pulang" : "masuk");
+    const wajibFoto = (jenis === "masuk");
+    const bisaKirim = petugasId && (!wajibFoto || foto);
+
+    const optsPetugas = S.petugas.map((p) =>
+      '<option value="' + p.id + '" ' + (p.id === petugasId ? "selected" : "") + '>' + esc(p.nama) + '</option>').join("");
+
+    const ketJenis = {
+      masuk: '<span class="badge lagoon">Presensi Masuk</span> Belum ada catatan — akan dicatat jam mulai.',
+      pulang: '<span class="badge amber">Presensi Pulang</span> Anda sudah masuk — akan dicatat jam selesai.',
+      selesai: '<span class="badge mist">Sudah Selesai</span> Presensi shift ini sudah lengkap.',
+    }[jenis];
+
+    box.innerHTML =
+      '<div class="card pad rise">' +
+        '<span class="eyebrow">Shift Terdeteksi</span>' +
+        '<h2 class="display mt-1">' + def.label + ' · ' + def.nama + '</h2>' +
+        '<p class="small muted">' + def.waktu + ' WITA &nbsp;·&nbsp; ' + fmtDateLong(sesi.date) + '</p>' +
+        '<p class="small mt-1">' + ketJenis + '</p>' +
+        '<hr class="sep">' +
+
+        '<label class="f">Nama Petugas</label>' +
+        '<select class="input" id="selPetugas" ' + (jenis === "selesai" ? "disabled" : "") + '>' +
+          '<option value="">— pilih nama Anda —</option>' + optsPetugas +
+        '</select>' +
+
+        (wajibFoto ? (
+          '<div class="mt-2"><label class="f">Foto Atribut (wajib saat masuk)</label>' +
+          (foto
+            ? '<div class="foto-prev"><img src="' + foto + '" alt="foto"></div><div class="row mt-1"><button class="btn light sm grow" id="btnUlang">↻ Ambil Ulang</button><button class="btn danger sm" id="btnHapus">Hapus</button></div>'
+            : '<label class="unggah" for="fileFoto">📷 <b>Ketuk untuk buka kamera</b><br><span class="small muted">Pastikan rompi & name tag terlihat</span></label><input type="file" accept="image/*" capture="environment" id="fileFoto" class="hidden">') +
+          '</div>'
+        ) : '') +
+
+        '<button class="btn primary block mt-3" id="btnKirim" ' + (bisaKirim ? "" : "disabled") + '>' +
+          (jenis === "masuk" ? "✓ Catat Presensi Masuk" : jenis === "pulang" ? "✓ Catat Presensi Pulang" : "Sudah Lengkap") +
+        '</button>' +
+      '</div>' +
+      '<p class="small muted center mt-2">Data tersimpan ' + (getMode() === "db" ? "di server (MySQL)." : "lokal (mode demo).") + '</p>';
+
+    el("#selPetugas").onchange = (e) => { petugasId = e.target.value; render(); };
+    const f = el("#fileFoto");
+    if (f) f.onchange = (e) => bacaFoto(e.target.files[0]);
+    const bu = el("#btnUlang"); if (bu) bu.onclick = () => { foto = null; render(); };
+    const bh = el("#btnHapus"); if (bh) bh.onclick = () => { foto = null; render(); };
+    const bk = el("#btnKirim"); if (bk && bisaKirim) bk.onclick = kirim;
+  }
+
+  function bacaFoto(file) {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { foto = r.result; render(); };
+    r.readAsDataURL(file);
+  }
+
+  function kirim() {
+    const p = S.petugas.find((x) => x.id === petugasId);
+    if (!p) return;
+    if (jenis === "masuk") {
+      berhasil = checkIn(p, sesi.shift, foto);
+    } else if (jenis === "pulang") {
+      const open = findOpenRecord(sesi.date, sesi.shift, petugasId);
+      berhasil = checkOut(open, foto);
+    }
+    render();
+  }
+
+  function renderSukses(box) {
+    const r = berhasil;
+    const telat = r.shift && !r.keluar ? menitTerlambat(r) : 0;
+    box.innerHTML =
+      '<div class="card pad center rise">' +
+        '<span style="font-size:3rem">✅</span>' +
+        '<h2 class="display mt-1">Presensi Tercatat</h2>' +
+        '<p class="small muted">' + esc(r.nama) + ' · ' + SHIFT[r.shift].label + '</p>' +
+        '<div class="clock tnum mt-2" style="font-size:2.6rem">' + (r.keluar ? fmtHM(r.keluar) : fmtHM(r.masuk)) + '</div>' +
+        '<p class="small muted">' + (r.keluar ? "Jam selesai bertugas" : "Jam mulai bertugas") + '</p>' +
+        (telat > 0 ? '<p class="badge ruby mt-1">Terlambat ' + telat + ' menit</p>' : '') +
+        (r.fotoMasuk ? '<div class="foto-prev mt-2"><img src="' + r.fotoMasuk + '" alt="foto"></div>' : '') +
+        '<a class="btn light block mt-3" href="index.html">Kembali ke Beranda</a>' +
+      '</div>';
+  }
+
+  (async () => {
+    await init();
+    render(); jam(); setInterval(jam, 1000);
+  })();
+</script>
+</body>
+</html>
