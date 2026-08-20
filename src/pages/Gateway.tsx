@@ -11,7 +11,7 @@ import {
 } from "../lib/store";
 import { copyText, navigate, useNow } from "../lib/hooks";
 import { IconArrowRight, IconBook, IconCopy, IconMonitor, IconPhoneScan, IconShield, LogoMark, IconSun, IconSunset } from "../components/icons";
-import { Badge } from "../components/ui";
+import { Badge, ModeBadge } from "../components/ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -90,6 +90,7 @@ export default function Gateway() {
               >
                 <IconBook size={13} /> Panduan Implementasi
               </a>
+              <span className="hidden lg:inline-flex"><ModeBadge dark /></span>
               <span className="hidden sm:flex items-center gap-2 text-[0.7rem] font-bold text-mist-300">
                 <span className="w-2 h-2 rounded-full bg-brand-500 live-dot" /> LOKET PELAYANAN TERPADU
               </span>

@@ -1,6 +1,36 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { IconCamera, IconX } from "./icons";
 import { menitTerlambat, type PresensiRecord } from "../lib/store";
+import { getBackendMode, onBackendMode, type BackendMode } from "../lib/backend";
+
+/* ---------- Mode koneksi (MySQL vs demo lokal) ---------- */
+
+export function ModeBadge({ dark = false }: { dark?: boolean }) {
+  const [mode, setMode] = useState<BackendMode>(() => getBackendMode());
+  useEffect(() => onBackendMode(setMode), []);
+  const db = mode === "db";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.62rem] font-extrabold uppercase tracking-[0.12em] ${
+        db
+          ? dark
+            ? "border-lagoon-600/50 bg-lagoon-600/15 text-lagoon-100"
+            : "border-lagoon-600/40 bg-lagoon-100 text-lagoon-700"
+          : dark
+            ? "border-amberx-100/40 bg-amberx-100/10 text-amberx-100"
+            : "border-amberx-500/40 bg-amberx-100 text-amberx-700"
+      }`}
+      title={
+        db
+          ? "Terhubung ke database MySQL melalui api.php — data tersinkron antar perangkat."
+          : "api.php tidak terdeteksi — data tersimpan di peramban ini saja (mode demo)."
+      }
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${db ? "bg-lagoon-500" : "bg-amberx-500"} live-dot inline-block`} />
+      {db ? "MySQL Aktif" : "Mode Demo"}
+    </span>
+  );
+}
 
 /* ---------- Badge ---------- */
 
@@ -62,8 +92,16 @@ export function PhotoTile({
   rounded?: string;
   iconClass?: string;
 }) {
-  if (src) {
-    return <img src={src} alt={`Foto ${nama}`} className={`${className} ${rounded} object-cover border border-mist-200`} />;
+  const [err, setErr] = useState(false);
+  if (src && !err) {
+    return (
+      <img
+        src={src}
+        alt={`Foto ${nama}`}
+        onError={() => setErr(true)}
+        className={`${className} ${rounded} object-cover border border-mist-200`}
+      />
+    );
   }
   const h = hueFrom(nama);
   return (

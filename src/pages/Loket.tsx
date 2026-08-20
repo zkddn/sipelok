@@ -17,7 +17,7 @@ import {
 } from "../lib/store";
 import { navigate, useNow } from "../lib/hooks";
 import { IconArrowRight, IconCalendar, IconQr, IconRefresh, LogoMark } from "../components/icons";
-import { Badge, EmptyState, PhotoTile, RecordStatus } from "../components/ui";
+import { Badge, EmptyState, ModeBadge, PhotoTile, RecordStatus } from "../components/ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -76,6 +76,7 @@ export default function Loket() {
         </button>
 
         <div className="ml-auto flex items-center gap-2">
+          <span className="hidden xl:inline-flex mr-1"><ModeBadge dark /></span>
           <span className="hidden md:inline text-[0.7rem] font-bold uppercase tracking-wider text-mist-300 mr-1">Shift ditampilkan</span>
           {([1, 2] as ShiftId[]).map((s) => (
             <button

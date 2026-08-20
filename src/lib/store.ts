@@ -1,6 +1,20 @@
 /* =========================================================
-   SIPELOK — lapisan data (localStorage, tanpa backend)
+   SIPELOK — lapisan data
+   Mode database : API PHP + MySQL (folder api/ pada build)
+   Mode demo     : localStorage peramban (tanpa server)
    ========================================================= */
+
+import {
+  backendClear,
+  backendDeleteRow,
+  backendSave,
+  getBackendMode,
+  onRemoteChange,
+  onRemotePayload,
+  type TableId,
+} from "./backend";
+
+export { getBackendMode, pingBackend, type BackendMode } from "./backend";
 
 export type ShiftId = 1 | 2;
 
@@ -166,13 +180,49 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+/** kunci localStorage → tabel API (null = tidak disinkronkan) */
+const TABLE_OF: Record<string, TableId | null> = {
+  [K.petugas]: "petugas",
+  [K.records]: "records",
+  [K.jadwal]: "jadwal",
+  [K.accounts]: "accounts",
+  [K.sessions]: "sessions",
+  [K.seeded]: null,
+};
+
+let applyingRemote = false;
+
 function write(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* kuota penuh — biarkan */
   }
+  // sinkronkan ke MySQL bila mode database aktif
+  const table = TABLE_OF[key];
+  if (table && !applyingRemote && Array.isArray(value)) {
+    backendSave(table, value as unknown[]);
+  }
 }
+
+/* ---------- penerimaan data dari server (mode database) ---------- */
+
+onRemotePayload((p) => {
+  applyingRemote = true;
+  try {
+    localStorage.setItem(K.petugas, JSON.stringify(p.petugas ?? []));
+    localStorage.setItem(K.records, JSON.stringify(p.records ?? []));
+    localStorage.setItem(K.jadwal, JSON.stringify(p.jadwal ?? []));
+    localStorage.setItem(K.accounts, JSON.stringify(p.accounts ?? []));
+    localStorage.setItem(K.sessions, JSON.stringify(p.sessions ?? []));
+  } catch {
+    /* abaikan */
+  } finally {
+    applyingRemote = false;
+  }
+});
+
+onRemoteChange(() => notify());
 
 /* ---------------- petugas ---------------- */
 
@@ -194,6 +244,7 @@ export function removePetugas(id: string) {
     K.petugas,
     getPetugas().filter((p) => p.id !== id)
   );
+  void backendDeleteRow("petugas", id);
   notify();
 }
 
@@ -503,6 +554,11 @@ export function clearAllData() {
   localStorage.removeItem(K.jadwal);
   localStorage.removeItem(K.seeded);
   ensureAccounts(); // akun admin tetap ada agar tidak terkunci
+  // mode database: kosongkan juga tabel di server (tabel akun dibiarkan)
+  void backendClear("petugas");
+  void backendClear("sessions");
+  void backendClear("records");
+  void backendClear("jadwal");
   notify();
 }
 
@@ -626,6 +682,9 @@ const DEMO_NAMES: Array<[string, string]> = [
 const randInt = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
 
 export function seedDemo(force = false) {
+  // data contoh otomatis hanya untuk mode demo; di mode database
+  // tetap bisa dimuat lewat tombol eksplisit "Muat data contoh"
+  if (getBackendMode() === "db" && !force) return;
   if (!force && localStorage.getItem(K.seeded)) return;
 
   const petugas: Petugas[] = DEMO_NAMES.map(([nama, nip]) => ({ id: uid(), nama, nip }));

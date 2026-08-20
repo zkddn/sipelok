@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { seedDemo } from "./lib/store";
+import { initBackend } from "./lib/backend";
 import { navigate, useHashRoute } from "./lib/hooks";
 import Gateway from "./pages/Gateway";
 import Loket from "./pages/Loket";
@@ -24,7 +25,15 @@ export default function App() {
   const route = useHashRoute();
 
   useEffect(() => {
-    seedDemo();
+    // Coba hubungkan ke API PHP/MySQL lebih dulu.
+    // Jika tidak ada server (mode statis), jalankan data contoh lokal.
+    let aktif = true;
+    void initBackend().then((mode) => {
+      if (aktif && mode === "local") seedDemo();
+    });
+    return () => {
+      aktif = false;
+    };
   }, []);
 
   const parts = route.split("/").filter(Boolean);

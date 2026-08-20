@@ -59,7 +59,8 @@ import {
   IconUsers,
   LogoMark,
 } from "../components/icons";
-import { Badge, EmptyState, Modal, PhotoTile, RecordStatus, SectionLabel } from "../components/ui";
+import { Badge, EmptyState, Modal, ModeBadge, PhotoTile, RecordStatus, SectionLabel } from "../components/ui";
+import { getBackendMode } from "../lib/backend";
 
 type Tab = "rekap" | "jadwal" | "petugas" | "pengaturan";
 
@@ -957,10 +958,25 @@ function PengaturanTab({ account, tick }: { account: Account; tick: number }) {
 
         {/* data */}
         <div className="card p-5 rise" style={{ animationDelay: "0.14s" }}>
-          <SectionLabel>Data & Penyimpanan</SectionLabel>
-          <p className="text-sm text-ink-500 mt-3 tnum">
-            Seluruh data tersimpan lokal di perangkat ini (± <strong className="text-ink-800">{storageSizeKB()} KB</strong>).
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <SectionLabel>Data & Penyimpanan</SectionLabel>
+            <ModeBadge />
+          </div>
+          {getBackendMode() === "db" ? (
+            <p className="text-sm text-ink-500 mt-3">
+              Data tersimpan terpusat di <strong className="text-ink-800">database MySQL</strong> melalui{" "}
+              <code className="tnum bg-mist-100 rounded px-1.5 py-0.5 text-[0.78rem]">api.php</code> — semua perangkat
+              (PC loket & HP petugas) melihat data yang sama. Foto atribut disimpan sebagai berkas di{" "}
+              <code className="tnum bg-mist-100 rounded px-1.5 py-0.5 text-[0.78rem]">api/uploads/</code>.
+            </p>
+          ) : (
+            <p className="text-sm text-ink-500 mt-3 tnum">
+              api.php tidak terdeteksi — data tersimpan lokal di perangkat ini saja (±{" "}
+              <strong className="text-ink-800">{storageSizeKB()} KB</strong>). Ikuti{" "}
+              <a href="#/panduan" className="text-brand-600 font-bold hover:underline">Panduan Implementasi</a> untuk
+              menghubungkan MySQL.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 mt-4">
             <button onClick={() => setConfirmSeed(true)} className="btn btn-light btn-sm">
               <IconRefresh size={14} /> Muat Ulang Data Contoh
@@ -1034,6 +1050,7 @@ export default function Admin() {
             </a>
 
             <div className="ml-auto flex items-center gap-2.5">
+              <ModeBadge dark />
               {!canEdit && <Badge tone="amber">Mode lihat saja</Badge>}
               <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-full pl-1.5 pr-3 py-1">
                 <span className="w-6 h-6 rounded-full bg-brand-500 text-ink-950 text-[0.65rem] font-extrabold flex items-center justify-center">
