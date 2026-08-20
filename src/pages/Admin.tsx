@@ -10,6 +10,7 @@ import {
   clearAllData,
   durasiMenit,
   exportCsv,
+  exportJadwalCsv,
   fmtDateLong,
   fmtDateShort,
   fmtDurasi,
@@ -48,6 +49,7 @@ import {
   IconEye,
   IconLogout,
   IconPlus,
+  IconPrinter,
   IconRefresh,
   IconSearch,
   IconShield,
@@ -71,9 +73,14 @@ function LoginScreen({ onSuccess }: { onSuccess: (a: Account) => void }) {
   const [error, setError] = useState("");
   const [shakeKey, setShakeKey] = useState(0);
 
-  const submit = (e: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const acc = login(username, password);
+    if (busy) return;
+    setBusy(true);
+    const acc = await login(username, password);
+    setBusy(false);
     if (!acc) {
       setError("Nama pengguna atau kata sandi salah.");
       setShakeKey((k) => k + 1);
@@ -162,7 +169,9 @@ function LoginScreen({ onSuccess }: { onSuccess: (a: Account) => void }) {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary btn-lg w-full">Masuk ke Konsol</button>
+            <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy}>
+              {busy ? "Memverifikasi…" : "Masuk ke Konsol"}
+            </button>
           </form>
 
           <div className="mt-6 rounded-xl border border-dashed border-mist-300 bg-white px-4 py-3">
@@ -402,19 +411,45 @@ function RekapTab({ tick, onAturJadwal }: { tick: number; onAturJadwal: () => vo
     [rows]
   );
 
+  const rentangLabel =
+    quick === "today"
+      ? fmtDateLong(todayStr(now))
+      : quick === "7d"
+        ? `7 hari terakhir (s.d. ${fmtDateShort(todayStr(now))})`
+        : quick === "month"
+          ? `Bulan ${now.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`
+          : `${fmtDateShort(from)} – ${fmtDateShort(to)}`;
+
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* kop cetak (hanya muncul di kertas) */}
+      <div className="hidden print:block">
+        <div className="flex items-center gap-4 border-b-4 border-double border-ink-900 pb-3">
+          <span className="w-14 h-14 border-2 border-ink-900 rounded-xl flex items-center justify-center text-ink-900">
+            <LogoMark size={34} />
+          </span>
+          <div className="flex-1 text-ink-900">
+            <p className="text-[0.72rem] font-bold uppercase tracking-wide">Badan Pusat Statistik Kabupaten Konawe</p>
+            <p className="font-display font-extrabold text-xl leading-tight">Rekap Presensi Piket Loket Pelayanan</p>
+            <p className="text-[0.72rem] font-semibold">SIPELOK · Periode: {rentangLabel}</p>
+          </div>
+          <p className="text-[0.68rem] font-semibold tnum">Dicetak {now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} {fmtHM(now.toISOString())}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
         <StatCard label="Total Presensi" value={stat.total} sub="pada rentang terpilih" icon={<IconClock size={16} />} delay="0s" />
         <StatCard label="Selesai" value={stat.selesai} sub="masuk & pulang tercatat" icon={<IconCheck size={16} />} delay="0.05s" />
         <StatCard label="Sedang Bertugas" value={stat.bertugas} sub="belum presensi pulang" icon={<IconUsers size={16} />} delay="0.1s" />
         <StatCard label="Terlambat" value={stat.telat} sub="> 10 mnt dari jadwal" icon={<IconAlert size={16} />} delay="0.15s" />
       </div>
 
-      <PiketHariIni tick={tick} onAturJadwal={onAturJadwal} />
+      <div className="print:hidden">
+        <PiketHariIni tick={tick} onAturJadwal={onAturJadwal} />
+      </div>
 
       {/* filter */}
-      <div className="card p-4 rise" style={{ animationDelay: "0.1s" }}>
+      <div className="card p-4 rise print:hidden" style={{ animationDelay: "0.1s" }}>
         <div className="flex flex-wrap gap-2 items-center">
           {([
             ["today", "Hari Ini"],
@@ -449,6 +484,9 @@ function RekapTab({ tick, onAturJadwal }: { tick: number; onAturJadwal: () => vo
           <button onClick={() => exportCsv(rows)} className="btn btn-primary btn-sm ml-auto" disabled={rows.length === 0}>
             <IconDownload size={15} /> Ekspor CSV
           </button>
+          <button onClick={() => window.print()} className="btn btn-light btn-sm" disabled={rows.length === 0} title="Cetak rekap resmi">
+            <IconPrinter size={15} /> Cetak
+          </button>
         </div>
       </div>
 
@@ -458,7 +496,7 @@ function RekapTab({ tick, onAturJadwal }: { tick: number; onAturJadwal: () => vo
           <EmptyState title="Tidak ada data pada rentang ini" desc="Ubah filter, atau tunggu petugas melakukan presensi melalui QR di layar loket." />
         ) : (
           <div className="overflow-x-auto slim-scroll">
-            <table className="w-full text-sm min-w-[820px]">
+            <table className="w-full text-sm min-w-[820px] print:min-w-0">
               <thead>
                 <tr className="bg-ink-900 text-mist-50 text-left text-[0.68rem] uppercase tracking-wider">
                   <th className="px-4 py-3 font-extrabold">Petugas</th>
@@ -494,7 +532,7 @@ function RekapTab({ tick, onAturJadwal }: { tick: number; onAturJadwal: () => vo
                       {(r.fotoMasuk || r.fotoKeluar) ? (
                         <button
                           onClick={() => setLightbox(r)}
-                          className="inline-flex items-center gap-1.5 text-[0.72rem] font-bold text-brand-600 hover:text-brand-700 bg-brand-100 hover:bg-brand-200 transition-colors rounded-lg px-2.5 py-1.5"
+                          className="inline-flex items-center gap-1.5 text-[0.72rem] font-bold text-brand-600 hover:text-brand-700 bg-brand-100 hover:bg-brand-200 transition-colors rounded-lg px-2.5 py-1.5 print:hidden"
                         >
                           <IconEye size={14} /> Lihat
                         </button>
@@ -512,6 +550,23 @@ function RekapTab({ tick, onAturJadwal }: { tick: number; onAturJadwal: () => vo
         <div className="px-4 py-2.5 bg-mist-100 border-t border-mist-200 text-[0.72rem] font-semibold text-ink-500 tnum">
           Menampilkan {rows.length} dari {all.length} catatan presensi
         </div>
+      </div>
+
+      {/* blok tanda tangan (hanya saat dicetak) */}
+      <div className="hidden print:block mt-10">
+        <div className="grid grid-cols-2 gap-10 text-ink-900 text-[0.78rem]">
+          <div className="text-center">
+            <p className="font-semibold">Petugas Rekap,</p>
+            <div className="h-20" />
+            <p className="font-bold">( ______________________ )</p>
+          </div>
+          <div className="text-center">
+            <p className="font-semibold">Mengetahui, Kepala BPS Kab. Konawe</p>
+            <div className="h-20" />
+            <p className="font-bold">( ______________________ )</p>
+          </div>
+        </div>
+        <p className="text-[0.62rem] text-ink-500 mt-6 tnum">Dokumen dicetak dari SIPELOK · {rentangLabel} · {rows.length} baris data</p>
       </div>
 
       <Lightbox r={lightbox} onClose={() => setLightbox(null)} />
@@ -562,16 +617,21 @@ function JadwalTab({ tick, canEdit }: { tick: number; canEdit: boolean }) {
               Hari <strong className="text-ink-800">Minggu</strong> tidak ada layanan loket.
             </p>
           </div>
-          {canEdit && (
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmGen(true)} className="btn btn-primary btn-sm">
-                <IconRefresh size={14} /> Buat Rotasi Otomatis
-              </button>
-              <button onClick={() => setConfirmClear(true)} className="btn btn-light btn-sm">
-                <IconTrash size={14} /> Kosongkan
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => exportJadwalCsv()} className="btn btn-light btn-sm" title="Unduh jadwal sebagai CSV untuk papan kantor">
+              <IconDownload size={14} /> Unduh CSV
+            </button>
+            {canEdit && (
+              <>
+                <button onClick={() => setConfirmGen(true)} className="btn btn-primary btn-sm">
+                  <IconRefresh size={14} /> Buat Rotasi Otomatis
+                </button>
+                <button onClick={() => setConfirmClear(true)} className="btn btn-light btn-sm">
+                  <IconTrash size={14} /> Kosongkan
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {pesan && (
@@ -795,18 +855,27 @@ function PengaturanTab({ account, tick }: { account: Account; tick: number }) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmSeed, setConfirmSeed] = useState(false);
 
-  const submitAcc = (e: FormEvent) => {
+  const [accBusy, setAccBusy] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
+
+  const submitAcc = async (e: FormEvent) => {
     e.preventDefault();
-    const res = addAccount(nu, nn, np, nr);
+    if (accBusy) return;
+    setAccBusy(true);
+    const res = await addAccount(nu, nn, np, nr);
+    setAccBusy(false);
     if (!res.ok) { setAccMsg({ ok: false, text: res.error ?? "Gagal menambah akun." }); return; }
     setAccMsg({ ok: true, text: `Akun "${nu.trim()}" berhasil dibuat.` });
     setNu(""); setNn(""); setNp(""); setNr("viewer");
   };
 
-  const submitPw = (e: FormEvent) => {
+  const submitPw = async (e: FormEvent) => {
     e.preventDefault();
+    if (pwBusy) return;
     if (next !== conf) { setPwMsg({ ok: false, text: "Konfirmasi kata sandi tidak sama." }); return; }
-    const res = changePassword(account.username, cur, next);
+    setPwBusy(true);
+    const res = await changePassword(account.username, cur, next);
+    setPwBusy(false);
     if (!res.ok) { setPwMsg({ ok: false, text: res.error ?? "Gagal mengganti sandi." }); return; }
     setPwMsg({ ok: true, text: "Kata sandi berhasil diganti." });
     setCur(""); setNext(""); setConf("");

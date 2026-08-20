@@ -5,6 +5,7 @@ import Gateway from "./pages/Gateway";
 import Loket from "./pages/Loket";
 import Scan from "./pages/Scan";
 import Admin from "./pages/Admin";
+import Panduan from "./pages/Panduan";
 
 function NotFound() {
   return (
@@ -32,5 +33,6 @@ export default function App() {
   if (parts[0] === "loket") return <Loket />;
   if (parts[0] === "scan") return <Scan token={parts[1]} />;
   if (parts[0] === "admin") return <Admin />;
+  if (parts[0] === "panduan") return <Panduan />;
   return <NotFound />;
 }

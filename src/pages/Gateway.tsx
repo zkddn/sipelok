@@ -10,7 +10,7 @@ import {
   todayStr,
 } from "../lib/store";
 import { copyText, navigate, useNow } from "../lib/hooks";
-import { IconArrowRight, IconCopy, IconMonitor, IconPhoneScan, IconShield, LogoMark, IconSun, IconSunset } from "../components/icons";
+import { IconArrowRight, IconBook, IconCopy, IconMonitor, IconPhoneScan, IconShield, LogoMark, IconSun, IconSunset } from "../components/icons";
 import { Badge } from "../components/ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -83,8 +83,16 @@ export default function Gateway() {
               <p className="font-display font-bold text-lg leading-tight">SIPELOK</p>
               <p className="text-[0.7rem] tracking-[0.18em] uppercase text-mist-300">BPS Kabupaten Konawe</p>
             </div>
-            <span className="ml-auto hidden sm:flex items-center gap-2 text-[0.7rem] font-bold text-mist-300">
-              <span className="w-2 h-2 rounded-full bg-brand-500 live-dot" /> LOKET PELAYANAN TERPADU
+            <span className="ml-auto flex items-center gap-3">
+              <a
+                href="#/panduan"
+                className="hidden md:inline-flex items-center gap-1.5 text-[0.7rem] font-extrabold text-brand-400 hover:text-brand-300 border border-brand-500/30 hover:border-brand-500/60 bg-brand-500/5 rounded-full px-3 py-1.5 transition-all"
+              >
+                <IconBook size={13} /> Panduan Implementasi
+              </a>
+              <span className="hidden sm:flex items-center gap-2 text-[0.7rem] font-bold text-mist-300">
+                <span className="w-2 h-2 rounded-full bg-brand-500 live-dot" /> LOKET PELAYANAN TERPADU
+              </span>
             </span>
           </div>
 

@@ -316,6 +316,16 @@ body {
     transform: translateX(4px);
   }
 }
+/* garis alur pada diagram panduan */
+@keyframes dashmove {
+  to {
+    stroke-dashoffset: -52;
+  }
+}
+.flowline {
+  animation: dashmove 1.6s linear infinite;
+}
+
 .shake {
   animation: shakeX 0.45s ease;
 }

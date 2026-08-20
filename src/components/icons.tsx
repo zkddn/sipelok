@@ -194,6 +194,54 @@ export const IconSun = (p: P) => (
   </svg>
 );
 
+export const IconPrinter = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7 8V3.5h10V8" />
+    <rect x="4" y="8" width="16" height="8.5" rx="2" />
+    <path d="M7 13.5h10v7H7z" />
+    <path d="M17 10.8h.5" />
+  </svg>
+);
+
+export const IconBook = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21V5.5Z" />
+    <path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20" />
+    <path d="M9 7.5h7M9 10.5h5" />
+  </svg>
+);
+
+export const IconGlobe = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17M12 3.5c2.6 2.3 3.9 5.1 3.9 8.5S14.6 18.2 12 20.5C9.4 18.2 8.1 15.4 8.1 12S9.4 5.8 12 3.5Z" />
+  </svg>
+);
+
+export const IconDatabase = (p: P) => (
+  <svg {...base(p)}>
+    <ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" />
+    <path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13" />
+    <path d="M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8" />
+  </svg>
+);
+
+export const IconRocket = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 15.5c5.5-4 7.5-8.6 7.5-11.9-3.4 0-8 2-11.9 7.5" />
+    <path d="M7.6 11.1 4 12.6l3.4 1.9M12.9 16.4l-1.5 3.6-1.9-3.4" />
+    <circle cx="14" cy="10" r="1.6" />
+    <path d="M6 18c-1 1-1.3 2.6-1.5 3.5.9-.2 2.5-.5 3.5-1.5" />
+  </svg>
+);
+
+export const IconTerminal = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="m7 9.5 3 2.7-3 2.7M12.5 15h4.5" />
+  </svg>
+);
+
 export const IconSunset = (p: P) => (
   <svg {...base(p)}>
     <path d="M5 15.5a7 7 0 0 1 14 0" />

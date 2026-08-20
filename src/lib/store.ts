@@ -54,6 +54,8 @@ export interface Account {
   nama: string;
   role: Role;
   hash: string;
+  salt?: string;
+  dibuat?: string;
 }
 
 export const DEFAULT_USERNAME = "admin";
@@ -195,7 +197,9 @@ export function removePetugas(id: string) {
   notify();
 }
 
-/* ---------------- akun: login & pengelolaan ---------------- */
+/* ---------------- akun: login & pengelolaan ----------------
+   Kata sandi di-hash SHA-256 + salt (Web Crypto). Akun lama yang
+   masih memakai hash djb2 otomatis dimigrasikan saat login berhasil. */
 
 function djb2(str: string): string {
   let h = 5381;
@@ -203,7 +207,22 @@ function djb2(str: string): string {
   return (h >>> 0).toString(36);
 }
 
-const hashPw = (pw: string) => djb2(`sipelok:${pw}:konawe`);
+const legacyHash = (pw: string) => djb2(`sipelok:${pw}:konawe`);
+
+async function sha256Hex(text: string): Promise<string> {
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    /* konteks non-aman (http) — fallback sederhana */
+    return "f" + legacyHash(text + ":fb");
+  }
+}
+
+const newSalt = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const hashPw = (pw: string, salt: string) => sha256Hex(`${salt}::sipelok::${pw}`);
 
 export function getAccounts(): Account[] {
   return read<Account[]>(K.accounts, []);
@@ -213,7 +232,7 @@ export function ensureAccounts() {
   try {
     if (!localStorage.getItem(K.accounts)) {
       write(K.accounts, [
-        { username: DEFAULT_USERNAME, nama: "Administrator", role: "admin", hash: hashPw(DEFAULT_PASSWORD) } as Account,
+        { username: DEFAULT_USERNAME, nama: "Administrator", role: "admin", hash: legacyHash(DEFAULT_PASSWORD) } as Account,
       ]);
     }
   } catch {
@@ -221,9 +240,29 @@ export function ensureAccounts() {
   }
 }
 
-export function login(username: string, password: string): Account | null {
-  const acc = getAccounts().find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
-  if (!acc || acc.hash !== hashPw(password)) return null;
+export async function login(username: string, password: string): Promise<Account | null> {
+  const list = getAccounts();
+  const acc = list.find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
+  if (!acc) return null;
+
+  let ok = false;
+  if (acc.salt) {
+    ok = acc.hash === (await hashPw(password, acc.salt));
+  } else {
+    // akun warisan (hash djb2) — cocokkan lalu migrasikan ke SHA-256 + salt
+    ok = acc.hash === legacyHash(password);
+    if (ok) {
+      const salt = newSalt();
+      const hash = await hashPw(password, salt);
+      write(
+        K.accounts,
+        list.map((a) => (a.username === acc.username ? { ...a, salt, hash } : a))
+      );
+      acc.salt = salt;
+      acc.hash = hash;
+    }
+  }
+  if (!ok) return null;
   try {
     sessionStorage.setItem(K_AUTH, acc.username);
   } catch {
@@ -251,20 +290,28 @@ export function logout() {
   notify();
 }
 
-export function addAccount(
+export async function addAccount(
   username: string,
   nama: string,
   password: string,
   role: Role
-): { ok: boolean; error?: string } {
+): Promise<{ ok: boolean; error?: string }> {
   const uname = username.trim();
   if (uname.length < 3) return { ok: false, error: "Nama pengguna minimal 3 karakter." };
   if (!/^[a-zA-Z0-9._-]+$/.test(uname)) return { ok: false, error: "Hanya huruf, angka, titik, strip, dan garis bawah." };
   if (getAccounts().some((a) => a.username.toLowerCase() === uname.toLowerCase()))
     return { ok: false, error: "Nama pengguna sudah dipakai." };
   if (password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter." };
+  const salt = newSalt();
   const list = getAccounts();
-  list.push({ username: uname, nama: nama.trim() || uname, role, hash: hashPw(password) });
+  list.push({
+    username: uname,
+    nama: nama.trim() || uname,
+    role,
+    salt,
+    hash: await hashPw(password, salt),
+    dibuat: new Date().toISOString(),
+  });
   write(K.accounts, list);
   notify();
   return { ok: true };
@@ -281,17 +328,20 @@ export function removeAccount(username: string): { ok: boolean; error?: string }
   return { ok: true };
 }
 
-export function changePassword(
+export async function changePassword(
   username: string,
   current: string,
   next: string
-): { ok: boolean; error?: string } {
+): Promise<{ ok: boolean; error?: string }> {
   const list = getAccounts();
   const acc = list.find((a) => a.username === username);
   if (!acc) return { ok: false, error: "Akun tidak ditemukan." };
-  if (acc.hash !== hashPw(current)) return { ok: false, error: "Kata sandi lama tidak cocok." };
+  const curOk = acc.salt ? acc.hash === (await hashPw(current, acc.salt)) : acc.hash === legacyHash(current);
+  if (!curOk) return { ok: false, error: "Kata sandi lama tidak cocok." };
   if (next.length < 6) return { ok: false, error: "Kata sandi baru minimal 6 karakter." };
-  write(K.accounts, list.map((a) => (a.username === username ? { ...a, hash: hashPw(next) } : a)));
+  const salt = newSalt();
+  const hash = await hashPw(next, salt);
+  write(K.accounts, list.map((a) => (a.username === username ? { ...a, salt, hash } : a)));
   notify();
   return { ok: true };
 }
@@ -534,6 +584,28 @@ export function exportCsv(rows: PresensiRecord[]) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `rekap-presensi-loket-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/** Ekspor jadwal piket mingguan sebagai CSV (untuk ditempel di papan kantor). */
+export function exportJadwalCsv() {
+  const head = ["Hari", "Shift", "Waktu", "Petugas", "NIP"];
+  const lines: string[] = [];
+  for (const hari of HARI_KERJA) {
+    for (const s of [1, 2] as ShiftId[]) {
+      const j = getJadwal().find((x) => x.hari === hari && x.shift === s);
+      const p = j ? getPetugas().find((x) => x.id === j.petugasId) : undefined;
+      lines.push([HARI_LABEL[hari], `Shift ${s} (${shiftDef(s).nama})`, shiftDef(s).waktu + " WITA", p?.nama ?? "-", p?.nip ?? "-"]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(";"));
+    }
+  }
+  const csv = "\uFEFF" + [head.join(";"), ...lines].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `jadwal-piket-loket-${todayStr()}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
