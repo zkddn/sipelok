@@ -1,3 +1,13 @@
+/* ============================================================
+   CATATAN: berkas ini adalah SUMBER Tailwind v4 (diproses oleh
+   Vite saat build). Arahan `@import "tailwindcss"` dan `@theme`
+   memang TIDAK dikenal oleh validator CSS biasa (VS Code, browser
+   yang membuka file ini langsung) — tanda merah pada editor untuk
+   blok di bawah itu WAJAR, bukan error sungguhan.
+
+   Versi aplikasi TANPA-npm memakai CSS polos di:
+   public/standalone/css/gaya.css  (valid 100%, tanpa tooling)
+   ============================================================ */
 @import "tailwindcss";
 
 @theme {
