@@ -44,14 +44,47 @@ export const SHIFTS: ShiftDef[] = [
 ];
 
 export const TOLERANSI_MENIT = 10;
-export const ADMIN_PIN = "1234";
+
+/* ---------------- akun admin ---------------- */
+
+export type Role = "admin" | "viewer";
+
+export interface Account {
+  username: string;
+  nama: string;
+  role: Role;
+  hash: string;
+}
+
+export const DEFAULT_USERNAME = "admin";
+export const DEFAULT_PASSWORD = "bpskonawe";
+
+/* ---------------- jadwal piket ---------------- */
+
+export interface JadwalEntry {
+  id: string;
+  petugasId: string;
+  hari: number; // 0 = Minggu … 6 = Sabtu (mengikuti Date.getDay())
+  shift: ShiftId;
+}
+
+export interface JadwalTerisi extends JadwalEntry {
+  petugas: Petugas | null;
+}
+
+export const HARI_LABEL = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+export const HARI_KERJA = [1, 2, 3, 4, 5, 6]; // Senin–Sabtu
 
 const K = {
   petugas: "sipelok.petugas",
   sessions: "sipelok.sessions",
   records: "sipelok.records",
+  jadwal: "sipelok.jadwal.v1",
+  accounts: "sipelok.accounts.v1",
   seeded: "sipelok.seeded.v1",
 };
+
+const K_AUTH = "sipelok.auth"; // sessionStorage
 
 /* ---------------- util waktu ---------------- */
 
@@ -162,6 +195,155 @@ export function removePetugas(id: string) {
   notify();
 }
 
+/* ---------------- akun: login & pengelolaan ---------------- */
+
+function djb2(str: string): string {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+const hashPw = (pw: string) => djb2(`sipelok:${pw}:konawe`);
+
+export function getAccounts(): Account[] {
+  return read<Account[]>(K.accounts, []);
+}
+
+export function ensureAccounts() {
+  try {
+    if (!localStorage.getItem(K.accounts)) {
+      write(K.accounts, [
+        { username: DEFAULT_USERNAME, nama: "Administrator", role: "admin", hash: hashPw(DEFAULT_PASSWORD) } as Account,
+      ]);
+    }
+  } catch {
+    /* abaikan */
+  }
+}
+
+export function login(username: string, password: string): Account | null {
+  const acc = getAccounts().find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
+  if (!acc || acc.hash !== hashPw(password)) return null;
+  try {
+    sessionStorage.setItem(K_AUTH, acc.username);
+  } catch {
+    /* abaikan */
+  }
+  return acc;
+}
+
+export function getAuth(): Account | null {
+  try {
+    const u = sessionStorage.getItem(K_AUTH);
+    if (!u) return null;
+    return getAccounts().find((a) => a.username === u) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function logout() {
+  try {
+    sessionStorage.removeItem(K_AUTH);
+  } catch {
+    /* abaikan */
+  }
+  notify();
+}
+
+export function addAccount(
+  username: string,
+  nama: string,
+  password: string,
+  role: Role
+): { ok: boolean; error?: string } {
+  const uname = username.trim();
+  if (uname.length < 3) return { ok: false, error: "Nama pengguna minimal 3 karakter." };
+  if (!/^[a-zA-Z0-9._-]+$/.test(uname)) return { ok: false, error: "Hanya huruf, angka, titik, strip, dan garis bawah." };
+  if (getAccounts().some((a) => a.username.toLowerCase() === uname.toLowerCase()))
+    return { ok: false, error: "Nama pengguna sudah dipakai." };
+  if (password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter." };
+  const list = getAccounts();
+  list.push({ username: uname, nama: nama.trim() || uname, role, hash: hashPw(password) });
+  write(K.accounts, list);
+  notify();
+  return { ok: true };
+}
+
+export function removeAccount(username: string): { ok: boolean; error?: string } {
+  const list = getAccounts();
+  const target = list.find((a) => a.username === username);
+  if (!target) return { ok: false, error: "Akun tidak ditemukan." };
+  if (target.role === "admin" && list.filter((a) => a.role === "admin").length <= 1)
+    return { ok: false, error: "Minimal harus tersisa satu akun admin." };
+  write(K.accounts, list.filter((a) => a.username !== username));
+  notify();
+  return { ok: true };
+}
+
+export function changePassword(
+  username: string,
+  current: string,
+  next: string
+): { ok: boolean; error?: string } {
+  const list = getAccounts();
+  const acc = list.find((a) => a.username === username);
+  if (!acc) return { ok: false, error: "Akun tidak ditemukan." };
+  if (acc.hash !== hashPw(current)) return { ok: false, error: "Kata sandi lama tidak cocok." };
+  if (next.length < 6) return { ok: false, error: "Kata sandi baru minimal 6 karakter." };
+  write(K.accounts, list.map((a) => (a.username === username ? { ...a, hash: hashPw(next) } : a)));
+  notify();
+  return { ok: true };
+}
+
+/* ---------------- jadwal piket mingguan ---------------- */
+
+export function getJadwal(): JadwalEntry[] {
+  return read<JadwalEntry[]>(K.jadwal, []);
+}
+
+export function saveJadwal(list: JadwalEntry[]) {
+  write(K.jadwal, list);
+  notify();
+}
+
+export function setSlotJadwal(hari: number, shift: ShiftId, petugasId: string) {
+  const list = getJadwal();
+  const ex = list.find((j) => j.hari === hari && j.shift === shift);
+  if (!petugasId) {
+    saveJadwal(list.filter((j) => !(j.hari === hari && j.shift === shift)));
+    return;
+  }
+  if (ex) saveJadwal(list.map((j) => (j === ex ? { ...j, petugasId } : j)));
+  else saveJadwal([...list, { id: uid(), petugasId, hari, shift }]);
+}
+
+/** Susun rotasi otomatis Senin–Sabtu dari daftar petugas (giliran merata). */
+export function generateJadwal(): JadwalEntry[] {
+  const p = getPetugas();
+  const n = p.length;
+  if (n === 0) return [];
+  const list: JadwalEntry[] = [];
+  HARI_KERJA.forEach((hari, di) => {
+    const i1 = (di * 2) % n;
+    let i2 = (di * 2 + 1) % n;
+    if (n > 1 && i2 === i1) i2 = (i2 + 1) % n;
+    list.push({ id: uid(), petugasId: p[i1].id, hari, shift: 1 });
+    list.push({ id: uid(), petugasId: p[i2].id, hari, shift: 2 });
+  });
+  return list;
+}
+
+/** Jadwal untuk tanggal tertentu, lengkap dengan data petugas. */
+export function jadwalUntuk(date: Date): JadwalTerisi[] {
+  const h = date.getDay();
+  const ps = getPetugas();
+  return getJadwal()
+    .filter((j) => j.hari === h)
+    .sort((a, b) => a.shift - b.shift)
+    .map((j) => ({ ...j, petugas: ps.find((p) => p.id === j.petugasId) ?? null }));
+}
+
 /* ---------------- sesi & token QR ---------------- */
 
 export function getSessions(): Session[] {
@@ -268,7 +450,9 @@ export function clearAllData() {
   localStorage.removeItem(K.petugas);
   localStorage.removeItem(K.sessions);
   localStorage.removeItem(K.records);
+  localStorage.removeItem(K.jadwal);
   localStorage.removeItem(K.seeded);
+  ensureAccounts(); // akun admin tetap ada agar tidak terkunci
   notify();
 }
 
@@ -375,6 +559,9 @@ export function seedDemo(force = false) {
   const petugas: Petugas[] = DEMO_NAMES.map(([nama, nip]) => ({ id: uid(), nama, nip }));
   write(K.petugas, petugas);
 
+  // pola jadwal piket mingguan (rotasi merata)
+  write(K.jadwal, generateJadwal());
+
   const records: PresensiRecord[] = [];
   const addRec = (date: string, shift: ShiftId, p: Petugas, masukMin: number, keluarMin: number | null) => {
     const def = shiftDef(shift);
@@ -415,13 +602,19 @@ export function seedDemo(force = false) {
   // hari ini — isi sesuai jam sekarang agar layar loket langsung "hidup"
   const today = todayStr();
   const hour = new Date().getHours();
+  const jdToday = jadwalUntuk(new Date());
+  const pick = (shift: ShiftId, i: number): Petugas => {
+    const on = jdToday.filter((j) => j.shift === shift).map((j) => j.petugas).filter(Boolean) as Petugas[];
+    if (on[i]) return on[i];
+    return petugas[(shift === 1 ? i : i + 2) % petugas.length];
+  };
   if (hour >= 8) {
-    addRec(today, 1, petugas[0], -7, hour >= 12 ? randInt(2, 14) : null);
-    addRec(today, 1, petugas[1], randInt(4, 18), hour >= 12 ? randInt(-8, 8) : null);
+    addRec(today, 1, pick(1, 0), -7, hour >= 12 ? randInt(2, 14) : null);
+    addRec(today, 1, pick(1, 1), randInt(4, 18), hour >= 12 ? randInt(-8, 8) : null);
   }
   if (hour >= 12) {
-    addRec(today, 2, petugas[2], -4, null);
-    addRec(today, 2, petugas[3], randInt(2, 12), null);
+    addRec(today, 2, pick(2, 0), -4, null);
+    addRec(today, 2, pick(2, 1), randInt(2, 12), null);
   }
   write(K.records, records);
 
@@ -432,3 +625,17 @@ export function seedDemo(force = false) {
   localStorage.setItem(K.seeded, "1");
   notify();
 }
+
+/* ---------------- inisialisasi modul ---------------- */
+
+/** Pastikan akun default tersedia (sekali saat aplikasi dimuat). */
+function ensureJadwal() {
+  try {
+    if (!localStorage.getItem(K.jadwal) && getPetugas().length > 0) write(K.jadwal, generateJadwal());
+  } catch {
+    /* abaikan */
+  }
+}
+
+ensureAccounts();
+ensureJadwal();

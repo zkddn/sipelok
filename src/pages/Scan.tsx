@@ -8,13 +8,14 @@ import {
   fmtDateLong,
   fmtHM,
   getPetugas,
+  jadwalUntuk,
   menitTerlambat,
   onSync,
   shiftDef,
   type PresensiRecord,
 } from "../lib/store";
 import { useNow } from "../lib/hooks";
-import { IconAlert, IconBadgeId, IconCamera, IconCheck, IconChevronDown, IconSun, IconSunset, IconX, LogoMark } from "../components/icons";
+import { IconAlert, IconBadgeId, IconCalendar, IconCamera, IconCheck, IconChevronDown, IconSun, IconSunset, IconX, LogoMark } from "../components/icons";
 import { Badge, PhotoTile } from "../components/ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -43,6 +44,15 @@ export default function Scan({ token }: { token?: string }) {
   // deteksi status presensi petugas terpilih
   const openRec = session && petugasId ? findOpenRecord(session.date, session.shift, petugasId) : null;
   const namaTerpilih = petugasList.find((p) => p.id === petugasId)?.nama ?? "";
+
+  // cek kesesuaian dengan jadwal piket mingguan
+  const jadwalNote = useMemo(() => {
+    if (!session || !petugasId) return "";
+    const j = jadwalUntuk(new Date(`${session.date}T12:00:00`)).find((x) => x.petugasId === petugasId);
+    if (!j) return "";
+    const d = shiftDef(j.shift);
+    return `Sesuai jadwal piket: ${d.label} · ${d.nama} (${d.waktu} WITA)`;
+  }, [session, petugasId, tick]);
 
   const pilihPetugas = (id: string) => {
     setPetugasId(id);
@@ -205,6 +215,11 @@ export default function Scan({ token }: { token?: string }) {
               </select>
               <IconChevronDown size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 pointer-events-none" />
             </div>
+            {jadwalNote && (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-[0.72rem] font-bold text-brand-600 bg-brand-100 rounded-lg px-2.5 py-1.5">
+                <IconCalendar size={13} /> {jadwalNote}
+              </p>
+            )}
           </div>
 
           {/* mode */}

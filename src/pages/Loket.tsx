@@ -5,6 +5,7 @@ import {
   fmtHM,
   getOrCreateSession,
   getRecords,
+  jadwalUntuk,
   onSync,
   rotateToken,
   scanUrlFor,
@@ -15,7 +16,7 @@ import {
   type ShiftId,
 } from "../lib/store";
 import { navigate, useNow } from "../lib/hooks";
-import { IconArrowRight, IconQr, IconRefresh, LogoMark } from "../components/icons";
+import { IconArrowRight, IconCalendar, IconQr, IconRefresh, LogoMark } from "../components/icons";
 import { Badge, EmptyState, PhotoTile, RecordStatus } from "../components/ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -60,6 +61,8 @@ export default function Loket() {
   );
   const masukCount = todayRecords.length;
   const aktifCount = todayRecords.filter((r) => !r.keluar).length;
+
+  const jadwalToday = useMemo(() => jadwalUntuk(new Date(`${today}T12:00:00`)), [today, tick]);
 
   return (
     <div className="min-h-screen bg-board text-mist-50 flex flex-col">
@@ -158,6 +161,48 @@ export default function Loket() {
             <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
               <p className="font-display font-extrabold text-3xl tnum text-brand-400">2</p>
               <p className="text-[0.68rem] font-bold uppercase tracking-wider text-mist-300">Shift per hari</p>
+            </div>
+          </div>
+
+          {/* petugas piket hari ini (dari jadwal mingguan) */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 rise" style={{ animationDelay: "0.22s" }}>
+            <p className="text-[0.68rem] font-extrabold uppercase tracking-wider text-mist-300 flex items-center gap-2">
+              <IconCalendar size={14} className="text-brand-400" /> Petugas Piket Hari Ini
+              <span className="ml-auto font-body normal-case tracking-normal text-mist-400">sumber: jadwal mingguan</span>
+            </p>
+            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+              {([1, 2] as ShiftId[]).map((s) => {
+                const sDef = shiftDef(s);
+                const entries = jadwalToday.filter((j) => j.shift === s);
+                const isActive = s === autoShift;
+                return (
+                  <div
+                    key={s}
+                    className={`rounded-lg px-3.5 py-2.5 border transition-colors ${
+                      isActive ? "border-brand-500/60 bg-brand-500/10" : "border-white/10 bg-white/5"
+                    }`}
+                  >
+                    <p className="text-[0.66rem] font-extrabold tnum text-mist-300 flex items-center gap-1.5">
+                      {sDef.label} · {sDef.nama}
+                      {isActive && <span className="text-brand-400">• sedang berjalan</span>}
+                    </p>
+                    {entries.length === 0 ? (
+                      <p className="text-sm text-mist-400 font-semibold mt-1">Belum dijadwalkan</p>
+                    ) : (
+                      entries.map((j) => {
+                        const rec = todayRecords.find((r) => r.petugasId === j.petugasId && r.shift === s);
+                        const color = rec ? (rec.keluar ? "text-mist-300 line-through decoration-mist-500/50" : "text-lagoon-100") : "text-amberx-100";
+                        return (
+                          <p key={j.id} className={`text-sm font-bold truncate mt-1 ${color}`}>
+                            {j.petugas?.nama ?? "—"}
+                            {!rec && <span className="text-[0.62rem] font-bold text-mist-400 ml-1.5">(belum scan)</span>}
+                          </p>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
