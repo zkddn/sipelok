@@ -31,6 +31,23 @@ function djb2(str) {
 function hashPw(pw, salt) { return djb2(salt + "::sipelok::" + pw); }
 function newSalt() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
+/* hash SHA-256 (format versi terdahulu) — agar kata sandi lama tetap diakui */
+async function sha256Hex(text) {
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) { return null; } /* butuh konteks aman: https atau localhost */
+}
+async function verifyPw(acc, password) {
+  if (!acc || !acc.hash) return false;
+  if (acc.salt && acc.hash.length === 64) {          /* format SHA-256 (versi lama) */
+    const h = await sha256Hex(acc.salt + "::sipelok::" + password);
+    return h !== null && h === acc.hash.toLowerCase();
+  }
+  if (acc.salt) return acc.hash === hashPw(password, acc.salt); /* format djb2 bergaram */
+  return acc.hash === djb2("sipelok:" + password + ":konawe");  /* format warisan */
+}
+
 /* ---------------- localStorage ---------------- */
 function lsRead(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
 function lsWrite(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* penuh */ } }
@@ -79,6 +96,7 @@ async function init() {
     S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []); S.sessions = lsRead(LS.sessions, []);
     if (!localStorage.getItem(LS.seeded)) seedDemo();
   }
+  sembuhAkun(); // jamin akun admin selalu ada (lokal maupun database)
   emit();
   return MODE;
 }
@@ -188,13 +206,21 @@ function deleteRecords(ids) {
 }
 
 /* ---------------- akun / auth ---------------- */
-function login(username, password) {
+async function login(username, password) {
+  if (!S.accounts.length) sembuhAkun(); /* pemulihan: buat ulang admin bila daftar kosong */
   const acc = S.accounts.find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
   if (!acc) return null;
-  const ok = acc.salt ? acc.hash === hashPw(password, acc.salt) : acc.hash === djb2("sipelok:" + password + ":konawe");
+  const ok = await verifyPw(acc, password);
   if (!ok) return null;
   try { sessionStorage.setItem(AUTH_KEY, acc.username); } catch (e) {}
   return acc;
+}
+/* memastikan selalu ada akun admin bawaan (admin / bpskonawe) */
+function sembuhAkun() {
+  if (S.accounts.some((a) => a.role === "admin")) return;
+  const salt = newSalt();
+  S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt, hash: hashPw("bpskonawe", salt) });
+  persist("accounts", S.accounts);
 }
 function getAuth() {
   try { const u = sessionStorage.getItem(AUTH_KEY); return u ? (S.accounts.find((a) => a.username === u) || null) : null; } catch (e) { return null; }
@@ -220,10 +246,10 @@ function removeAccount(username) {
   persist("accounts", S.accounts); emit();
   return { ok: true };
 }
-function changePassword(username, cur, next) {
+async function changePassword(username, cur, next) {
   const acc = S.accounts.find((a) => a.username === username);
   if (!acc) return { ok: false, error: "Akun tidak ditemukan." };
-  const curOk = acc.salt ? acc.hash === hashPw(cur, acc.salt) : acc.hash === djb2("sipelok:" + cur + ":konawe");
+  const curOk = await verifyPw(acc, cur);
   if (!curOk) return { ok: false, error: "Kata sandi lama tidak cocok." };
   if (next.length < 6) return { ok: false, error: "Kata sandi baru minimal 6 karakter." };
   const salt = newSalt();

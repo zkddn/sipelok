@@ -38,10 +38,12 @@
         '<p id="lerr" class="small" style="color:var(--ruby-700);margin-top:10px"></p>' +
         '<button class="btn primary block mt-2" id="lbtn">Masuk</button>' +
         '<p class="small muted center mt-2">Akun bawaan: <b>admin</b> / <b>bpskonawe</b></p>' +
+        '<p class="small muted center" style="max-width:340px;margin:10px auto 0;line-height:1.5">Terkunci? Jalankan <b>DELETE FROM akun;</b> di phpMyAdmin lalu muat ulang — akun bawaan dibuat ulang otomatis. (Mode demo: bersihkan Local Storage situs ini.)</p>' +
         '<p class="small center mt-1"><a href="index.html">← Kembali ke beranda</a></p>' +
       '</div></div>';
-    const go = () => {
-      const a = login(el("#lu").value, el("#lp").value);
+    const go = async () => {
+      el("#lerr").textContent = "";
+      const a = await login(el("#lu").value, el("#lp").value);
       if (!a) { el("#lerr").textContent = "Nama pengguna atau kata sandi salah."; return; }
       akun = a; renderShell();
     };
@@ -372,9 +374,9 @@
         }
       };
     }
-    el("#gsimpan").onclick = () => {
+    el("#gsimpan").onclick = async () => {
       if (el("#gn").value !== el("#gk").value) { el("#gpesan").innerHTML = '<span style="color:var(--ruby-700)">Konfirmasi tidak sama.</span>'; return; }
-      const r = changePassword(akun.username, el("#gc").value, el("#gn").value);
+      const r = await changePassword(akun.username, el("#gc").value, el("#gn").value);
       el("#gpesan").innerHTML = r.ok ? '<span style="color:var(--lagoon-700)">Kata sandi berhasil diganti.</span>' : '<span style="color:var(--ruby-700)">' + r.error + '</span>';
       if (r.ok) { el("#gc").value = el("#gn").value = el("#gk").value = ""; }
     };
@@ -382,11 +384,21 @@
 
   /* ============ mulai ============ */
   (async () => {
-    await init();
-    akun = getAuth();
-    if (akun) renderShell(); else renderLogin();
-    startSync();
-    onChange(() => { if (akun) renderTab(); });
+    try {
+      await init();
+      akun = getAuth();
+      if (akun) renderShell(); else renderLogin();
+      startSync();
+      onChange(() => { if (akun) renderTab(); });
+    } catch (err) {
+      console.error("SIPELOK gagal dimulai:", err);
+      el("#app").innerHTML =
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink-900);color:var(--mist-50)">' +
+        '<div class="card pad" style="max-width:440px"><span class="eyebrow">Halaman tidak dapat dimulai</span>' +
+        '<p class="mt-1">Terjadi galat: <b>' + esc(String(err && err.message || err)) + '</b></p>' +
+        '<p class="small muted mt-1">Muat ulang halaman (Ctrl+R). Bila berulang, hapus data situs browser untuk halaman ini, atau salin ulang seluruh folder <b>standalone</b> ke htdocs.</p>' +
+        '<button class="btn primary mt-2" onclick="location.reload()">Muat Ulang</button></div></div>';
+    }
   })();
 </script>
 </body>

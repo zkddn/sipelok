@@ -51,7 +51,7 @@ try {
 
 /* akun admin bawaan: admin / bpskonawe  (hash djb2 bergaram, dibuat otomatis) */
 function seed_defaults(PDO $db): void {
-  $n = (int) $db->query('SELECT COUNT(*) FROM akun')->fetchColumn();
+  $n = (int) $db->query("SELECT COUNT(*) FROM akun WHERE peran = 'admin'")->fetchColumn();
   if ($n === 0) {
     $salt = substr(md5((string) mt_rand()), 0, 10);
     $hash = djb2($salt . '::sipelok::' . 'bpskonawe');
