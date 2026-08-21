@@ -135,6 +135,9 @@ tbody td{padding:12px 16px;border-bottom:1px solid var(--mist-100);vertical-alig
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:var(--brand-50)}
 tbody tr.today{background:rgba(215,240,236,.4)}
+tbody tr.sel, tbody tr.sel:hover{background:var(--brand-100)}
+input[type="checkbox"]{width:17px;height:17px;accent-color:var(--brand-600);cursor:pointer;vertical-align:middle}
+th.pil, td.pil{width:44px;text-align:center;padding-left:14px;padding-right:6px}
 
 /* ---------- header ---------- */
 .topbar{position:sticky;top:0;z-index:40;background:var(--ink-900);color:var(--mist-50);border-bottom:1px solid rgba(255,255,255,.1)}

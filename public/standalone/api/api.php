@@ -169,6 +169,23 @@ try {
       $table = (string) ($_GET['table'] ?? ''); $id = (string) ($_GET['id'] ?? '');
       if ($table === 'petugas')      $db->prepare('DELETE FROM petugas WHERE id=?')->execute([$id]);
       elseif ($table === 'sessions') $db->prepare('DELETE FROM sesi WHERE token=?')->execute([$id]);
+      elseif ($table === 'records') {
+        // id boleh satu atau banyak (dipisah koma)
+        $ids = array_values(array_filter(array_map('trim', explode(',', $id)), 'strlen'));
+        if (!$ids) fail('Tidak ada id presensi yang dikirim');
+        // bersihkan berkas foto atribut di disk agar penyimpanan tidak penuh
+        $pf = $db->prepare('SELECT foto_masuk, foto_keluar FROM presensi WHERE id = ?');
+        foreach ($ids as $rid) {
+          $pf->execute([$rid]);
+          $f = $pf->fetch();
+          if ($f) foreach ([$f['foto_masuk'], $f['foto_keluar']] as $fp) {
+            if ($fp && strpos($fp, 'api/uploads/') === 0) @unlink(dirname(__DIR__) . '/' . $fp);
+          }
+        }
+        $st = $db->prepare('DELETE FROM presensi WHERE id = ?');
+        foreach ($ids as $rid) $st->execute([$rid]);
+        out(['ok' => true, 'rows' => count($ids)]);
+      }
       else fail('Tabel tidak dikenal: ' . $table);
       out(['ok' => true]); break;
     }

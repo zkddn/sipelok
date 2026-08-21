@@ -23,6 +23,7 @@
 <script src="js/util.js"></script>
 <script>
   let akun = null, tabAktif = "rekap", q = "", cepat = "today", fShift = 0, fDari = "", fSampai = "";
+  let terpilih = []; // id catatan rekap yang dipilih untuk dihapus
   let lightboxSrc = null;
 
   /* ============ gerbang masuk ============ */
@@ -117,6 +118,8 @@
 
   function renderRekap() {
     const rows = barisRekap();
+    const isAdmin = akun && akun.role === "admin";
+    terpilih = terpilih.filter((id) => rows.some((r) => r.id === id)); // buang pilihan yang tak tampil lagi
     const stat = {
       total: rows.length,
       selesai: rows.filter((r) => r.keluar).length,
@@ -145,24 +148,30 @@
           '<div class="grow"></div>' +
           '<button class="btn light sm" id="cetak">🖨 Cetak</button>' +
           '<button class="btn primary sm" id="csv">⬇ Ekspor CSV</button>' +
+          (isAdmin ? '<button class="btn danger sm" id="hpilih" ' + (terpilih.length ? "" : "disabled") + '>🗑 Hapus Terpilih' + (terpilih.length ? " (" + terpilih.length + ")" : "") + '</button>' : "") +
         '</div>' +
+        (isAdmin ? '<p class="small muted mt-1">Tip: unduh CSV lebih dulu, lalu centang &amp; hapus catatan lama agar rekap tetap ringan.</p>' : "") +
       '</div>' +
       '<div class="table-wrap mt-2 rise">' +
         (rows.length === 0 ? '<div class="pad center small muted">Tidak ada data pada rentang ini.</div>' :
-        '<table><thead><tr><th>Petugas</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th><th>Durasi</th><th>Foto</th><th>Status</th></tr></thead><tbody>' +
+        '<table><thead><tr>' + (isAdmin ? '<th class="no-print pil"><input type="checkbox" id="psemua" ' + (rows.length > 0 && rows.every((r) => terpilih.includes(r.id)) ? "checked" : "") + ' title="Pilih semua yang tampil"></th>' : "") +
+        '<th>Petugas</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th><th>Durasi</th><th>Foto</th><th>Status</th>' + (isAdmin ? '<th class="no-print">Aksi</th>' : "") + '</tr></thead><tbody>' +
         rows.map((r) => {
           const p = S.petugas.find((x) => x.id === r.petugasId);
           const telat = menitTerlambat(r);
           const status = r.keluar ? '<span class="badge mist">Selesai</span>' : '<span class="badge lagoon">Bertugas</span>';
           const foto = (r.fotoMasuk || r.fotoKeluar) ? '<button class="btn light sm" data-foto="' + (r.fotoMasuk || r.fotoKeluar) + '">Lihat</button>' : '<span class="muted small">—</span>';
-          return '<tr class="' + (r.date === todayStr() ? "today" : "") + '">' +
+          const pilih = terpilih.includes(r.id);
+          return '<tr class="' + (r.date === todayStr() ? "today" : "") + (pilih ? " sel" : "") + '">' +
+            (isAdmin ? '<td class="no-print pil"><input type="checkbox" data-pilih="' + r.id + '" ' + (pilih ? "checked" : "") + ' aria-label="Pilih catatan ' + esc(r.nama) + '"></td>' : "") +
             '<td><div class="row"><span class="ini">' + inisial(r.nama) + '</span><div><b>' + esc(r.nama) + '</b><br><span class="small muted tnum">' + esc(p && p.nip ? p.nip : "NIP —") + '</span></div></div></td>' +
             '<td class="tnum">' + fmtDateShort(r.date) + '</td>' +
             '<td><span class="badge ' + (r.shift === 1 ? "brand" : "lagoon") + '">' + SHIFT[r.shift].label + '</span></td>' +
             '<td class="tnum"><b style="color:var(--lagoon-700)">' + fmtHM(r.masuk) + '</b>' + (telat > 0 ? '<br><span class="small" style="color:var(--ruby-700)">+' + telat + ' mnt</span>' : '') + '</td>' +
             '<td class="tnum">' + (r.keluar ? fmtHM(r.keluar) : "—") + '</td>' +
             '<td class="tnum">' + fmtDurasi(durasiMenit(r)) + '</td>' +
-            '<td>' + foto + '</td><td>' + status + '</td></tr>';
+            '<td>' + foto + '</td><td>' + status + '</td>' +
+            (isAdmin ? '<td class="no-print"><button class="btn ghost sm" data-hapusrec="' + r.id + '" title="Hapus catatan ini" aria-label="Hapus catatan ' + esc(r.nama) + '">🗑</button></td>' : "") + '</tr>';
         }).join("") + '</tbody></table>') +
         '<div class="pad small muted" style="padding:12px 18px">Menampilkan ' + rows.length + ' dari ' + S.records.length + ' catatan.</div>' +
       '</div>';
@@ -180,6 +189,49 @@
     };
     el("#cetak").onclick = () => window.print();
     document.querySelectorAll("[data-foto]").forEach((b) => b.onclick = () => bukaLb(b.dataset.foto));
+
+    /* --- pilihan & penghapusan rekap (khusus admin) --- */
+    if (isAdmin) {
+      const perbaruiTombolHapus = () => {
+        const b = el("#hpilih");
+        if (!b) return;
+        b.disabled = terpilih.length === 0;
+        b.innerHTML = "🗑 Hapus Terpilih" + (terpilih.length ? " (" + terpilih.length + ")" : "");
+      };
+      const ps = el("#psemua");
+      if (ps) ps.onchange = () => {
+        if (ps.checked) rows.forEach((r) => { if (!terpilih.includes(r.id)) terpilih.push(r.id); });
+        else terpilih = terpilih.filter((id) => !rows.some((r) => r.id === id));
+        document.querySelectorAll("[data-pilih]").forEach((c) => {
+          c.checked = ps.checked;
+          c.closest("tr").classList.toggle("sel", ps.checked);
+        });
+        perbaruiTombolHapus();
+      };
+      document.querySelectorAll("[data-pilih]").forEach((c) => c.onchange = () => {
+        const id = c.dataset.pilih;
+        if (c.checked) { if (!terpilih.includes(id)) terpilih.push(id); }
+        else terpilih = terpilih.filter((x) => x !== id);
+        c.closest("tr").classList.toggle("sel", c.checked);
+        if (ps) ps.checked = rows.length > 0 && rows.every((r) => terpilih.includes(r.id));
+        perbaruiTombolHapus();
+      });
+      document.querySelectorAll("[data-hapusrec]").forEach((b) => b.onclick = () => {
+        const r = S.records.find((x) => x.id === b.dataset.hapusrec);
+        if (!r) return;
+        if (confirm("Hapus presensi " + r.nama + " — " + fmtDateShort(r.date) + ", " + SHIFT[r.shift].label + "?")) {
+          terpilih = terpilih.filter((x) => x !== r.id);
+          deleteRecords([r.id]);
+        }
+      });
+      el("#hpilih").onclick = () => {
+        if (!terpilih.length) return;
+        if (confirm("Hapus " + terpilih.length + " catatan presensi terpilih?\n\nUnduh CSV terlebih dahulu bila data masih diperlukan — tindakan ini tidak dapat dibatalkan.")) {
+          deleteRecords(terpilih.slice());
+          terpilih = [];
+        }
+      };
+    }
   }
   function statCard(num, lbl, sub) {
     return '<div class="card stat rise"><div class="num tnum">' + num + '</div><div class="lbl">' + lbl + '</div><div class="sub">' + sub + '</div></div>';

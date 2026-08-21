@@ -178,6 +178,14 @@ function checkOut(rec, fotoKeluar) {
   persist("records", S.records); emit();
   return rec;
 }
+/* hapus satu atau banyak catatan presensi (berkas foto ikut dibersihkan di sisi server) */
+function deleteRecords(ids) {
+  const set = new Set(ids);
+  S.records = S.records.filter((r) => !set.has(r.id));
+  lsWrite(LS.records, S.records);
+  if (MODE === "db") http("delete", { table: "records", id: ids.join(",") }).catch(() => {});
+  emit();
+}
 
 /* ---------------- akun / auth ---------------- */
 function login(username, password) {
