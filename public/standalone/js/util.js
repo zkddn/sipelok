@@ -1,11 +1,14 @@
 /* ============================================================
    SIPELOK — util.js  (dipakai semua halaman, tanpa npm)
    Dua mode:  db  -> PHP+MySQL   |   local -> localStorage (demo)
+   Login SINKRON dengan satu format hash yang pasti (djb2+salt),
+   sama persis dengan api.php — mustahil tidak cocok.
    ============================================================ */
 "use strict";
 
 const API = "api/api.php";
 const API_KEY = "sipelok-konawe-2024";
+const ADMIN_SALT = "sipelokadmin"; // sama dengan api.php
 
 const LS = {
   petugas: "sipelok.petugas", records: "sipelok.records", jadwal: "sipelok.jadwal",
@@ -23,6 +26,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function onChange(fn) { listeners.push(fn); }
 function emit() { listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); }
 
+/* djb2 -> base36. WAJIB identik dengan fungsi djb2() di api.php */
 function djb2(str) {
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
@@ -31,35 +35,22 @@ function djb2(str) {
 function hashPw(pw, salt) { return djb2(salt + "::sipelok::" + pw); }
 function newSalt() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
-/* hash SHA-256 (format versi terdahulu) — agar kata sandi lama tetap diakui */
-async function sha256Hex(text) {
-  try {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  } catch (e) { return null; } /* butuh konteks aman: https atau localhost */
-}
-async function verifyPw(acc, password) {
-  if (!acc || !acc.hash) return false;
-  if (acc.salt && acc.hash.length === 64) {          /* format SHA-256 (versi lama) */
-    const h = await sha256Hex(acc.salt + "::sipelok::" + password);
-    return h !== null && h === acc.hash.toLowerCase();
-  }
-  if (acc.salt) return acc.hash === hashPw(password, acc.salt); /* format djb2 bergaram */
-  return acc.hash === djb2("sipelok:" + password + ":konawe");  /* format warisan */
-}
-
 /* ---------------- localStorage ---------------- */
 function lsRead(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
 function lsWrite(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* penuh */ } }
 
 /* ---------------- HTTP ---------------- */
-async function http(action, opts = {}) {
-  const { table, id, body } = opts;
+async function http(action, opts) {
+  opts = opts || {};
   let url = API + "?action=" + encodeURIComponent(action);
-  if (table) url += "&table=" + encodeURIComponent(table);
-  if (id) url += "&id=" + encodeURIComponent(id);
-  const init = { method: body ? "POST" : "GET", headers: {} };
-  if (body) { init.headers["Content-Type"] = "application/json"; init.headers["X-Sipelok-Key"] = API_KEY; init.body = JSON.stringify(body); }
+  if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
+  if (opts.id) url += "&id=" + encodeURIComponent(opts.id);
+  const init = { method: opts.body ? "POST" : "GET", headers: {} };
+  if (opts.body) {
+    init.headers["Content-Type"] = "application/json";
+    init.headers["X-Sipelok-Key"] = API_KEY;
+    init.body = JSON.stringify(opts.body);
+  }
   const r = await fetch(url, init);
   return r.json();
 }
@@ -80,46 +71,52 @@ async function detectMode() {
 function getMode() { return MODE; }
 
 async function init() {
-  const isDb = await detectMode();
-  if (isDb) {
-    const j = await http("bootstrap");
-    if (j && j.ok) {
-      S.petugas = j.petugas || []; S.records = j.records || [];
-      S.jadwal = j.jadwal || []; S.accounts = j.accounts || []; S.sessions = j.sessions || [];
-      // cermin lokal agar tetap terbaca saat offline sesaat
-      lsWrite(LS.petugas, S.petugas); lsWrite(LS.records, S.records);
-      lsWrite(LS.jadwal, S.jadwal); lsWrite(LS.accounts, S.accounts); lsWrite(LS.sessions, S.sessions);
-      try { const s = await http("sig"); lastSig = s.sig || ""; } catch (e) {}
+  try {
+    const isDb = await detectMode();
+    if (isDb) {
+      const j = await http("bootstrap");
+      if (j && j.ok) {
+        S.petugas = j.petugas || []; S.records = j.records || [];
+        S.jadwal = j.jadwal || []; S.accounts = j.accounts || []; S.sessions = j.sessions || [];
+        // cermin lokal agar tetap terbaca saat offline sesaat
+        lsWrite(LS.petugas, S.petugas); lsWrite(LS.records, S.records);
+        lsWrite(LS.jadwal, S.jadwal); lsWrite(LS.accounts, S.accounts); lsWrite(LS.sessions, S.sessions);
+        try { const s = await http("sig"); lastSig = (s && s.sig) || ""; } catch (e) { /* abaikan */ }
+      }
+    } else {
+      S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
+      S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []); S.sessions = lsRead(LS.sessions, []);
+      if (!localStorage.getItem(LS.seeded)) seedDemo();
     }
-  } else {
+  } catch (e) {
+    console.error("init:", e);
     S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
     S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []); S.sessions = lsRead(LS.sessions, []);
-    if (!localStorage.getItem(LS.seeded)) seedDemo();
   }
-  sembuhAkun(); // jamin akun admin selalu ada (lokal maupun database)
+  ensureAdmin();
   emit();
   return MODE;
 }
 
 /* live-sync: poll sidik jari, muat ulang bila berubah */
-function startSync(intervalMs = 3500) {
+function startSync(intervalMs) {
   if (MODE !== "db") return;
   setInterval(async () => {
     try {
       const s = await http("sig");
-      if (s.sig && s.sig !== lastSig) { lastSig = s.sig; await init(); }
+      if (s && s.sig && s.sig !== lastSig) { lastSig = s.sig; await init(); }
     } catch (e) { /* server sibuk, lewati */ }
-  }, intervalMs);
+  }, intervalMs || 3500);
 }
 
 /* ---------------- simpan (dua mode) ---------------- */
 function persist(table, rows) {
   lsWrite(LS[table], rows);
-  if (MODE === "db") http("save", { table, body: rows }).catch(() => {});
+  if (MODE === "db") http("save", { table: table, body: rows }).catch(() => {});
 }
 function persistDelete(table, id, rows) {
   lsWrite(LS[table], rows);
-  if (MODE === "db") http("delete", { table, id }).catch(() => {});
+  if (MODE === "db") http("delete", { table: table, id: id }).catch(() => {});
 }
 
 /* ---------------- shift & waktu ---------------- */
@@ -155,8 +152,8 @@ function generateJadwal() {
   const p = S.petugas, n = p.length, out = [];
   if (n === 0) return out;
   HARI_KERJA.forEach((hari, di) => {
-    out.push({ id: uid(), hari, shift: 1, petugasId: p[(di * 2) % n].id });
-    out.push({ id: uid(), hari, shift: 2, petugasId: p[(di * 2 + 1) % n].id });
+    out.push({ id: uid(), hari: hari, shift: 1, petugasId: p[(di * 2) % n].id });
+    out.push({ id: uid(), hari: hari, shift: 2, petugasId: p[(di * 2 + 1) % n].id });
   });
   return out;
 }
@@ -165,13 +162,16 @@ function generateJadwal() {
 function getSessionFor(shift) {
   const t = todayStr();
   let s = S.sessions.find((x) => x.date === t && x.shift === shift);
-  if (!s) { s = { token: uid().toUpperCase(), date: t, shift, createdAt: new Date().toISOString() }; S.sessions.push(s); persist("sessions", S.sessions); }
+  if (!s) {
+    s = { token: uid().toUpperCase(), date: t, shift: shift, createdAt: new Date().toISOString() };
+    S.sessions.push(s); persist("sessions", S.sessions);
+  }
   return s;
 }
 function renewSession(shift) {
   const t = todayStr();
   S.sessions = S.sessions.filter((x) => !(x.date === t && x.shift === shift));
-  const s = { token: uid().toUpperCase(), date: t, shift, createdAt: new Date().toISOString() };
+  const s = { token: uid().toUpperCase(), date: t, shift: shift, createdAt: new Date().toISOString() };
   S.sessions.push(s); persist("sessions", S.sessions);
   return s;
 }
@@ -182,11 +182,8 @@ function scanUrlFor(token) { return location.href.replace(/[^/]*$/, "scan.html")
 function findOpenRecord(date, shift, petugasId) {
   return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId && !r.keluar);
 }
-function findRecord(date, shift, petugasId) {
-  return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId);
-}
 function checkIn(petugas, shift, fotoMasuk) {
-  const r = { id: uid(), date: todayStr(), shift, petugasId: petugas.id, nama: petugas.nama, masuk: new Date().toISOString(), keluar: null, fotoMasuk: fotoMasuk || null, fotoKeluar: null };
+  const r = { id: uid(), date: todayStr(), shift: shift, petugasId: petugas.id, nama: petugas.nama, masuk: new Date().toISOString(), keluar: null, fotoMasuk: fotoMasuk || null, fotoKeluar: null };
   S.records.unshift(r); persist("records", S.records); emit();
   return r;
 }
@@ -196,7 +193,7 @@ function checkOut(rec, fotoKeluar) {
   persist("records", S.records); emit();
   return rec;
 }
-/* hapus satu atau banyak catatan presensi (berkas foto ikut dibersihkan di sisi server) */
+/* hapus satu atau banyak catatan presensi (berkas foto ikut dibersihkan di server) */
 function deleteRecords(ids) {
   const set = new Set(ids);
   S.records = S.records.filter((r) => !set.has(r.id));
@@ -205,52 +202,65 @@ function deleteRecords(ids) {
   emit();
 }
 
-/* ---------------- akun / auth ---------------- */
-async function login(username, password) {
-  if (!S.accounts.length) sembuhAkun(); /* pemulihan: buat ulang admin bila daftar kosong */
+/* ---------------- akun / auth (sinkron, anti-terkunci) ---------------- */
+function verifyPw(acc, pw) {
+  if (acc.salt && acc.hash === hashPw(pw, acc.salt)) return true;           // format kini
+  if (!acc.salt && acc.hash === djb2("sipelok:" + pw + ":konawe")) return true; // warisan v0
+  return false;
+}
+function ensureAdmin() {
+  const ada = S.accounts.some((a) => a.role === "admin");
+  if (!ada) {
+    S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt: ADMIN_SALT, hash: hashPw("bpskonawe", ADMIN_SALT), dibuat: new Date().toISOString() });
+    persist("accounts", S.accounts);
+  }
+}
+function login(username, password) {
+  ensureAdmin();
   const acc = S.accounts.find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
   if (!acc) return null;
-  const ok = await verifyPw(acc, password);
-  if (!ok) return null;
-  try { sessionStorage.setItem(AUTH_KEY, acc.username); } catch (e) {}
+  // pemulihan akun bawaan: bila admin tersimpan dalam format versi lama yang
+  // tak dikenali, mengetik sandi bawaan akan memulihkannya ke format kini
+  if (acc.username === "admin" && !verifyPw(acc, password) && password === "bpskonawe") {
+    acc.salt = ADMIN_SALT; acc.hash = hashPw(password, ADMIN_SALT);
+    persist("accounts", S.accounts);
+  }
+  if (!verifyPw(acc, password)) return null;
+  try { sessionStorage.setItem(AUTH_KEY, acc.username); } catch (e) { /* abaikan */ }
   return acc;
 }
-/* memastikan selalu ada akun admin bawaan (admin / bpskonawe) */
-function sembuhAkun() {
-  if (S.accounts.some((a) => a.role === "admin")) return;
-  const salt = newSalt();
-  S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt, hash: hashPw("bpskonawe", salt) });
-  persist("accounts", S.accounts);
-}
 function getAuth() {
-  try { const u = sessionStorage.getItem(AUTH_KEY); return u ? (S.accounts.find((a) => a.username === u) || null) : null; } catch (e) { return null; }
+  try {
+    const u = sessionStorage.getItem(AUTH_KEY);
+    return u ? (S.accounts.find((a) => a.username === u) || null) : null;
+  } catch (e) { return null; }
 }
-function logout() { try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {} }
+function logout() { try { sessionStorage.removeItem(AUTH_KEY); } catch (e) { /* abaikan */ } }
+
 function addAccount(username, nama, password, role) {
   const uname = username.trim();
   if (uname.length < 3) return { ok: false, error: "Nama pengguna minimal 3 karakter." };
-  if (!/^[a-zA-Z0-9._-]+$/.test(uname)) return { ok: false, error: "Hanya huruf, angka, titik, strip, garis bawah." };
+  if (!/^[a-zA-Z0-9._-]+$/.test(uname)) return { ok: false, error: "Hanya huruf, angka, titik, strip, dan garis bawah." };
   if (S.accounts.some((a) => a.username.toLowerCase() === uname.toLowerCase())) return { ok: false, error: "Nama pengguna sudah dipakai." };
   if (password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter." };
   const salt = newSalt();
-  S.accounts.push({ username: uname, nama: nama.trim() || uname, role, salt, hash: hashPw(password, salt), dibuat: new Date().toISOString() });
+  S.accounts.push({ username: uname, nama: nama.trim() || uname, role: role, salt: salt, hash: hashPw(password, salt), dibuat: new Date().toISOString() });
   persist("accounts", S.accounts); emit();
   return { ok: true };
 }
 function removeAccount(username) {
-  const admins = S.accounts.filter((a) => a.role === "admin");
   const target = S.accounts.find((a) => a.username === username);
   if (!target) return { ok: false, error: "Akun tidak ditemukan." };
-  if (target.role === "admin" && admins.length <= 1) return { ok: false, error: "Minimal harus tersisa satu akun admin." };
+  if (target.role === "admin" && S.accounts.filter((a) => a.role === "admin").length <= 1)
+    return { ok: false, error: "Minimal harus tersisa satu akun admin." };
   S.accounts = S.accounts.filter((a) => a.username !== username);
   persist("accounts", S.accounts); emit();
   return { ok: true };
 }
-async function changePassword(username, cur, next) {
+function changePassword(username, cur, next) {
   const acc = S.accounts.find((a) => a.username === username);
   if (!acc) return { ok: false, error: "Akun tidak ditemukan." };
-  const curOk = await verifyPw(acc, cur);
-  if (!curOk) return { ok: false, error: "Kata sandi lama tidak cocok." };
+  if (!verifyPw(acc, cur)) return { ok: false, error: "Kata sandi lama tidak cocok." };
   if (next.length < 6) return { ok: false, error: "Kata sandi baru minimal 6 karakter." };
   const salt = newSalt();
   acc.salt = salt; acc.hash = hashPw(next, salt);
@@ -267,10 +277,10 @@ const DEMO = [
 function seedDemo(force) {
   if (MODE === "db" && !force) return;
   if (!force && localStorage.getItem(LS.seeded)) return;
-  S.petugas = DEMO.map(([nama, nip]) => ({ id: uid(), nama, nip }));
+  S.petugas = DEMO.map((d) => ({ id: uid(), nama: d[0], nip: d[1] }));
   S.jadwal = generateJadwal();
-  S.accounts = []; const salt = newSalt();
-  S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt, hash: hashPw("bpskonawe", salt) });
+  S.accounts = [];
+  S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt: ADMIN_SALT, hash: hashPw("bpskonawe", ADMIN_SALT), dibuat: new Date().toISOString() });
   S.sessions = []; S.records = [];
   const hour = new Date().getHours();
   const rec = (shift, i, telat, keluar) => {
@@ -279,7 +289,7 @@ function seedDemo(force) {
     const d = new Date(); d.setHours(shift === 1 ? 8 : 12, telat, 0, 0);
     const masuk = d.toISOString(); let out = null;
     if (keluar != null) { const e = new Date(d); e.setMinutes(e.getMinutes() + 230 + keluar); out = e.toISOString(); }
-    S.records.push({ id: uid(), date: todayStr(), shift, petugasId: p.id, nama: p.nama, masuk, keluar: out, fotoMasuk: null, fotoKeluar: null });
+    S.records.push({ id: uid(), date: todayStr(), shift: shift, petugasId: p.id, nama: p.nama, masuk: masuk, keluar: out, fotoMasuk: null, fotoKeluar: null });
   };
   if (hour >= 8) { rec(1, 0, -7, hour >= 12 ? 8 : null); rec(1, 1, 6, hour >= 12 ? -4 : null); }
   if (hour >= 12) { rec(2, 2, -4, null); rec(2, 3, 5, null); }
@@ -297,11 +307,29 @@ function downloadCsv(nama, baris) {
   a.download = nama; a.click(); URL.revokeObjectURL(a.href);
 }
 
-/* ---------------- salin & QR ---------------- */
+/* ---------------- salin, QR & foto ---------------- */
 async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
 function qrImg(url, size) {
   return "https://api.qrserver.com/v1/create-qr-code/?size=" + size + "x" + size +
          "&color=0C2431&bgcolor=FFFFFF&margin=1&data=" + encodeURIComponent(url);
+}
+/* perkecil foto HP agar hemat penyimpanan (maks 720px, JPEG) */
+function kecilkanFoto(file, done) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    try {
+      const max = 720, sc = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * sc));
+      c.height = Math.max(1, Math.round(img.height * sc));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      done(c.toDataURL("image/jpeg", 0.72));
+    } catch (e) { URL.revokeObjectURL(url); done(null); }
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); done(null); };
+  img.src = url;
 }
 
 /* ---------------- util DOM ---------------- */

@@ -4,51 +4,60 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Admin & Rekap · SIPELOK</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/gaya.css" />
 <style>
-  .grid-jadwal{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center}
-  .jhead{font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-500);text-align:center}
-  .modal-bg{position:fixed;inset:0;background:rgba(7,26,36,.75);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
-  .modal-bg img{max-width:min(420px,92vw);max-height:74vh;border-radius:16px;border:4px solid #fff}
-  .filter-chip{padding:8px 16px;border-radius:999px;border:none;font-weight:800;font-size:.78rem;cursor:pointer;background:var(--mist-100);color:var(--ink-600);transition:background .2s}
-  .filter-chip.on{background:var(--ink-900);color:#fff}
+  .grid-jadwal { display: grid; grid-template-columns: 112px 1fr 1fr; gap: 8px; align-items: center; }
+  .jhead { font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-500); text-align: center; }
+  .filter-chip { padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--mist-200); font-weight: 800; font-size: .78rem; cursor: pointer; background: #fff; color: var(--ink-600); transition: all .15s; }
+  .filter-chip.on { background: var(--ink-900); border-color: var(--ink-900); color: #fff; }
 </style>
 </head>
 <body class="bg-paper">
-<div id="app"></div>
+<script>
+  window.onerror = function (msg, src, line) {
+    var t = document.getElementById("app");
+    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p><p style="opacity:.7;margin:0">Muat ulang halaman (Ctrl+R), atau salin ulang folder <b>standalone</b> secara lengkap.</p></div>';
+  };
+</script>
+<div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--ink-500)"><span class="spin" style="font-size:1.6rem">◌</span>&nbsp; Memuat…</div></div>
 
 <script src="js/util.js"></script>
 <script>
-  let akun = null, tabAktif = "rekap", q = "", cepat = "today", fShift = 0, fDari = "", fSampai = "";
+  let akun = null, tabAktif = "rekap";
+  let q = "", cepat = "today", fShift = 0, fDari = "", fSampai = "";
   let terpilih = []; // id catatan rekap yang dipilih untuk dihapus
-  let lightboxSrc = null;
 
   /* ============ gerbang masuk ============ */
   function renderLogin() {
     el("#app").innerHTML =
       '<div class="bg-board" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">' +
       '<div class="card pad rise" style="width:100%;max-width:400px">' +
-        '<div class="row"><span class="mk" style="width:44px;height:44px;border-radius:12px;background:var(--brand-500);color:#16100a;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3 5 5.8v5.4c0 4.5 3 7.8 7 9.3 4-1.5 7-4.8 7-9.3V5.8L12 3Z"/><path d="m9 11.5 2.2 2.2L15.5 9"/></svg></span>' +
+        '<div class="row"><span class="mk" style="width:44px;height:44px;border-radius:12px;background:var(--brand-500);color:#1d1206;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3 5 5.8v5.4c0 4.5 3 7.8 7 9.3 4-1.5 7-4.8 7-9.3V5.8L12 3Z"/><path d="m9 11.5 2.2 2.2L15.5 9"/></svg></span>' +
         '<div><b class="display" style="font-size:1.2rem">Konsol Admin</b><br><span class="small muted">SIPELOK · BPS Kab. Konawe</span></div></div>' +
         '<div class="mt-2"><label class="f">Nama Pengguna</label><input class="input" id="lu" value="admin" autocomplete="username"></div>' +
         '<div class="mt-1"><label class="f">Kata Sandi</label><input class="input" id="lp" type="password" placeholder="••••••••" autocomplete="current-password"></div>' +
-        '<p id="lerr" class="small" style="color:var(--ruby-700);margin-top:10px"></p>' +
-        '<button class="btn primary block mt-2" id="lbtn">Masuk</button>' +
+        '<p id="lerr" class="small" style="color:var(--ruby-700);margin-top:10px;min-height:1em"></p>' +
+        '<button class="btn primary block mt-1" id="lbtn">Masuk</button>' +
         '<p class="small muted center mt-2">Akun bawaan: <b>admin</b> / <b>bpskonawe</b></p>' +
-        '<p class="small muted center" style="max-width:340px;margin:10px auto 0;line-height:1.5">Terkunci? Jalankan <b>DELETE FROM akun;</b> di phpMyAdmin lalu muat ulang — akun bawaan dibuat ulang otomatis. (Mode demo: bersihkan Local Storage situs ini.)</p>' +
+        '<p class="small muted center" style="margin-top:4px">Terkunci? Jalankan <b>DELETE FROM akun;</b> di phpMyAdmin, lalu muat ulang — akun bawaan dibuat ulang otomatis.</p>' +
         '<p class="small center mt-1"><a href="index.html">← Kembali ke beranda</a></p>' +
       '</div></div>';
-    const go = async () => {
-      el("#lerr").textContent = "";
-      const a = await login(el("#lu").value, el("#lp").value);
-      if (!a) { el("#lerr").textContent = "Nama pengguna atau kata sandi salah."; return; }
+    const go = () => {
+      const a = login(el("#lu").value, el("#lp").value);
+      if (!a) {
+        el("#lerr").textContent = "Nama pengguna atau kata sandi salah.";
+        const k = el("#app .card"); if (k) { k.classList.remove("shake"); void k.offsetWidth; k.classList.add("shake"); }
+        return;
+      }
       akun = a; renderShell();
     };
     el("#lbtn").onclick = go;
     el("#lp").onkeydown = (e) => { if (e.key === "Enter") go(); };
+    el("#lp").focus();
   }
 
   /* ============ kerangka ============ */
@@ -62,11 +71,11 @@
         '<a class="brandmark" href="index.html"><span class="mk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>' +
         '<span><b>SIPELOK</b><small>Konsol Admin</small></span></a>' +
         '<div class="grow"></div><span id="modeBadge" class="hide-sm"></span>' +
-        '<span class="badge brand">' + esc(akun.nama) + '</span>' +
+        '<span class="badge brand">' + esc(akun.nama) + (akun.role !== "admin" ? " · lihat" : "") + '</span>' +
         '<button class="btn ghost sm" id="keluar">Keluar</button>' +
       '</div></header>' +
-      '<nav class="tabs" id="tabbar">' + tabs.map(([id, lbl]) =>
-        '<button data-tab="' + id + '" class="' + (id === tabAktif ? "on" : "") + '">' + lbl + '</button>').join("") + '</nav>' +
+      '<nav class="tabs" id="tabbar">' + tabs.map((t) =>
+        '<button data-tab="' + t[0] + '" class="' + (t[0] === tabAktif ? "on" : "") + '">' + t[1] + '</button>').join("") + '</nav>' +
       '<main class="wrap" style="padding-top:26px;padding-bottom:60px"><div id="isi"></div></main>' +
       '<div id="lb" class="modal-bg hidden" onclick="tutupLb()"><img id="lbImg" alt="foto atribut"></div>';
 
@@ -78,6 +87,7 @@
   }
 
   function renderTab() {
+    if (!akun) return;
     if (tabAktif === "rekap") renderRekap();
     else if (tabAktif === "jadwal") renderJadwal();
     else if (tabAktif === "petugas") renderPetugas();
@@ -100,9 +110,9 @@
       }).join("");
       return '<div class="card pad" style="padding:14px 18px"><span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + ' · ' + SHIFT[sh].nama + '</span><div class="mt-1" style="display:flex;flex-direction:column;gap:8px">' + isi + '</div></div>';
     }).join("");
-    return '<div class="card pad rise"><div class="row" style="justify-content:space-between"><span class="eyebrow">Piket Hari Ini — ' + fmtDateLong(t) + '</span>' +
-      '<button class="btn light sm" onclick="tabAktif=\'jadwal\';renderShell()">Atur Jadwal →</button></div>' +
-      '<div class="grid-2 mt-1">' + (baris || '<span class="small muted">Belum ada jadwal hari ini.</span>') + '</div></div>';
+    return '<div class="card pad rise"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span class="eyebrow">Piket Hari Ini — ' + fmtDateLong(t) + '</span>' +
+      '<button class="btn light sm no-print" id="keJadwal">Atur Jadwal →</button></div>' +
+      '<div class="grid-2 mt-1">' + (baris || '<span class="small muted">Belum ada jadwal hari ini (Minggu libur, atau jadwal belum diatur).</span>') + '</div></div>';
   }
 
   /* ============ REKAP ============ */
@@ -111,17 +121,17 @@
     const t = todayStr();
     if (cepat === "today") rows = rows.filter((r) => r.date === t);
     else if (cepat === "7d") { const d = new Date(); d.setDate(d.getDate() - 6); const s = todayStr(d); rows = rows.filter((r) => r.date >= s); }
-    else if (cepat === "month") { const m = t.slice(0, 7); rows = rows.filter((r) => r.date.startsWith(m)); }
+    else if (cepat === "month") { const m = t.slice(0, 7); rows = rows.filter((r) => r.date.indexOf(m) === 0); }
     else { if (fDari) rows = rows.filter((r) => r.date >= fDari); if (fSampai) rows = rows.filter((r) => r.date <= fSampai); }
     if (fShift) rows = rows.filter((r) => r.shift === fShift);
-    if (q) rows = rows.filter((r) => r.nama.toLowerCase().includes(q.toLowerCase()));
-    return rows.sort((a, b) => (b.date + b.masuk).localeCompare(a.date + a.masuk));
+    if (q) rows = rows.filter((r) => r.nama.toLowerCase().indexOf(q.toLowerCase()) >= 0);
+    return rows.sort((a, b) => (b.date + (b.masuk || "")).localeCompare(a.date + (a.masuk || "")));
   }
 
   function renderRekap() {
     const rows = barisRekap();
     const isAdmin = akun && akun.role === "admin";
-    terpilih = terpilih.filter((id) => rows.some((r) => r.id === id)); // buang pilihan yang tak tampil lagi
+    terpilih = terpilih.filter((id) => rows.some((r) => r.id === id));
     const stat = {
       total: rows.length,
       selesai: rows.filter((r) => r.keluar).length,
@@ -140,7 +150,7 @@
       '</div>' +
       '<div class="card pad mt-2 rise no-print">' +
         '<div class="row" style="flex-wrap:wrap;gap:8px">' +
-          chips.map(([k, l]) => '<button class="filter-chip ' + (cepat === k ? "on" : "") + '" data-q="' + k + '">' + l + '</button>').join("") +
+          chips.map((c) => '<button class="filter-chip ' + (cepat === c[0] ? "on" : "") + '" data-q="' + c[0] + '">' + c[1] + '</button>').join("") +
           '<input class="input inline grow" style="min-width:180px" id="cq" placeholder="Cari nama petugas…" value="' + esc(q) + '">' +
         '</div>' +
         '<div class="row mt-1" style="flex-wrap:wrap;gap:8px">' +
@@ -152,20 +162,20 @@
           '<button class="btn primary sm" id="csv">⬇ Ekspor CSV</button>' +
           (isAdmin ? '<button class="btn danger sm" id="hpilih" ' + (terpilih.length ? "" : "disabled") + '>🗑 Hapus Terpilih' + (terpilih.length ? " (" + terpilih.length + ")" : "") + '</button>' : "") +
         '</div>' +
-        (isAdmin ? '<p class="small muted mt-1">Tip: unduh CSV lebih dulu, lalu centang &amp; hapus catatan lama agar rekap tetap ringan.</p>' : "") +
+        (isAdmin ? '<p class="small muted mt-1" style="margin-bottom:0">Tip: unduh CSV lebih dulu, lalu centang &amp; hapus catatan lama agar rekap tetap ringan.</p>' : "") +
       '</div>' +
       '<div class="table-wrap mt-2 rise">' +
         (rows.length === 0 ? '<div class="pad center small muted">Tidak ada data pada rentang ini.</div>' :
-        '<table><thead><tr>' + (isAdmin ? '<th class="no-print pil"><input type="checkbox" id="psemua" ' + (rows.length > 0 && rows.every((r) => terpilih.includes(r.id)) ? "checked" : "") + ' title="Pilih semua yang tampil"></th>' : "") +
+        '<table><thead><tr>' + (isAdmin ? '<th class="pil no-print"><input type="checkbox" id="psemua" ' + (rows.every((r) => terpilih.indexOf(r.id) >= 0) ? "checked" : "") + ' title="Pilih semua yang tampil"></th>' : "") +
         '<th>Petugas</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th><th>Durasi</th><th>Foto</th><th>Status</th>' + (isAdmin ? '<th class="no-print">Aksi</th>' : "") + '</tr></thead><tbody>' +
         rows.map((r) => {
           const p = S.petugas.find((x) => x.id === r.petugasId);
           const telat = menitTerlambat(r);
           const status = r.keluar ? '<span class="badge mist">Selesai</span>' : '<span class="badge lagoon">Bertugas</span>';
           const foto = (r.fotoMasuk || r.fotoKeluar) ? '<button class="btn light sm" data-foto="' + (r.fotoMasuk || r.fotoKeluar) + '">Lihat</button>' : '<span class="muted small">—</span>';
-          const pilih = terpilih.includes(r.id);
+          const pilih = terpilih.indexOf(r.id) >= 0;
           return '<tr class="' + (r.date === todayStr() ? "today" : "") + (pilih ? " sel" : "") + '">' +
-            (isAdmin ? '<td class="no-print pil"><input type="checkbox" data-pilih="' + r.id + '" ' + (pilih ? "checked" : "") + ' aria-label="Pilih catatan ' + esc(r.nama) + '"></td>' : "") +
+            (isAdmin ? '<td class="pil no-print"><input type="checkbox" data-pilih="' + r.id + '" ' + (pilih ? "checked" : "") + ' aria-label="Pilih catatan ' + esc(r.nama) + '"></td>' : "") +
             '<td><div class="row"><span class="ini">' + inisial(r.nama) + '</span><div><b>' + esc(r.nama) + '</b><br><span class="small muted tnum">' + esc(p && p.nip ? p.nip : "NIP —") + '</span></div></div></td>' +
             '<td class="tnum">' + fmtDateShort(r.date) + '</td>' +
             '<td><span class="badge ' + (r.shift === 1 ? "brand" : "lagoon") + '">' + SHIFT[r.shift].label + '</span></td>' +
@@ -173,20 +183,24 @@
             '<td class="tnum">' + (r.keluar ? fmtHM(r.keluar) : "—") + '</td>' +
             '<td class="tnum">' + fmtDurasi(durasiMenit(r)) + '</td>' +
             '<td>' + foto + '</td><td>' + status + '</td>' +
-            (isAdmin ? '<td class="no-print"><button class="btn ghost sm" data-hapusrec="' + r.id + '" title="Hapus catatan ini" aria-label="Hapus catatan ' + esc(r.nama) + '">🗑</button></td>' : "") + '</tr>';
+            (isAdmin ? '<td class="no-print"><button class="btn ghost sm" data-hapusrec="' + r.id + '" title="Hapus catatan ini" style="background:var(--ruby-100);color:var(--ruby-700);border-color:rgba(165,42,47,.25)">🗑</button></td>' : "") + '</tr>';
         }).join("") + '</tbody></table>') +
         '<div class="pad small muted" style="padding:12px 18px">Menampilkan ' + rows.length + ' dari ' + S.records.length + ' catatan.</div>' +
       '</div>';
 
+    const kj = el("#keJadwal"); if (kj) kj.onclick = () => { tabAktif = "jadwal"; renderShell(); };
     document.querySelectorAll(".filter-chip").forEach((c) => c.onclick = () => { cepat = c.dataset.q; renderRekap(); });
-    el("#cq").oninput = (e) => { q = e.target.value; renderRekap(); };
-    el("#cq").focus(); const v = el("#cq"); v.setSelectionRange(v.value.length, v.value.length);
+    const cq = el("#cq");
+    if (cq) {
+      cq.oninput = (e) => { q = e.target.value; renderRekap(); };
+      cq.focus(); cq.setSelectionRange(cq.value.length, cq.value.length);
+    }
     el("#cdari").onchange = (e) => { fDari = e.target.value; cepat = "all"; renderRekap(); };
     el("#csampai").onchange = (e) => { fSampai = e.target.value; cepat = "all"; renderRekap(); };
     el("#cshift").onchange = (e) => { fShift = Number(e.target.value); renderRekap(); };
     el("#csv").onclick = () => {
       const data = [["Nama", "NIP", "Tanggal", "Shift", "Masuk", "Pulang", "Durasi (mnt)", "Status"]].concat(
-        rows.map((r) => { const p = S.petugas.find((x) => x.id === r.petugasId); return [r.nama, p && p.nip || "", r.date, "Shift " + r.shift, r.masuk || "", r.keluar || "", durasiMenit(r) || "", r.keluar ? "Selesai" : "Bertugas"]; }));
+        rows.map((r) => { const p = S.petugas.find((x) => x.id === r.petugasId); return [r.nama, (p && p.nip) || "", r.date, "Shift " + r.shift, r.masuk || "", r.keluar || "", durasiMenit(r) || "", r.keluar ? "Selesai" : "Bertugas"]; }));
       downloadCsv("rekap-sipelok-" + todayStr() + ".csv", data);
     };
     el("#cetak").onclick = () => window.print();
@@ -194,7 +208,7 @@
 
     /* --- pilihan & penghapusan rekap (khusus admin) --- */
     if (isAdmin) {
-      const perbaruiTombolHapus = () => {
+      const perbaruiTombol = () => {
         const b = el("#hpilih");
         if (!b) return;
         b.disabled = terpilih.length === 0;
@@ -202,21 +216,21 @@
       };
       const ps = el("#psemua");
       if (ps) ps.onchange = () => {
-        if (ps.checked) rows.forEach((r) => { if (!terpilih.includes(r.id)) terpilih.push(r.id); });
+        if (ps.checked) rows.forEach((r) => { if (terpilih.indexOf(r.id) < 0) terpilih.push(r.id); });
         else terpilih = terpilih.filter((id) => !rows.some((r) => r.id === id));
         document.querySelectorAll("[data-pilih]").forEach((c) => {
           c.checked = ps.checked;
           c.closest("tr").classList.toggle("sel", ps.checked);
         });
-        perbaruiTombolHapus();
+        perbaruiTombol();
       };
       document.querySelectorAll("[data-pilih]").forEach((c) => c.onchange = () => {
         const id = c.dataset.pilih;
-        if (c.checked) { if (!terpilih.includes(id)) terpilih.push(id); }
+        if (c.checked) { if (terpilih.indexOf(id) < 0) terpilih.push(id); }
         else terpilih = terpilih.filter((x) => x !== id);
         c.closest("tr").classList.toggle("sel", c.checked);
-        if (ps) ps.checked = rows.length > 0 && rows.every((r) => terpilih.includes(r.id));
-        perbaruiTombolHapus();
+        if (ps) ps.checked = rows.length > 0 && rows.every((r) => terpilih.indexOf(r.id) >= 0);
+        perbaruiTombol();
       });
       document.querySelectorAll("[data-hapusrec]").forEach((b) => b.onclick = () => {
         const r = S.records.find((x) => x.id === b.dataset.hapusrec);
@@ -226,7 +240,8 @@
           deleteRecords([r.id]);
         }
       });
-      el("#hpilih").onclick = () => {
+      const hp = el("#hpilih");
+      if (hp) hp.onclick = () => {
         if (!terpilih.length) return;
         if (confirm("Hapus " + terpilih.length + " catatan presensi terpilih?\n\nUnduh CSV terlebih dahulu bila data masih diperlukan — tindakan ini tidak dapat dibatalkan.")) {
           deleteRecords(terpilih.slice());
@@ -263,8 +278,8 @@
     el("#isi").innerHTML =
       '<div class="card pad rise">' +
         '<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">' +
-          '<div><span class="eyebrow">Jadwal Piket Mingguan</span><h2 class="display mt-1">Senin – Sabtu · 2 Shift</h2></div>' +
-          '<div class="row"><button class="btn light sm" id="jcsv">⬇ Unduh CSV</button>' +
+          '<div><span class="eyebrow">Jadwal Piket Mingguan</span><h2 class="display mt-1" style="font-size:1.5rem">Senin – Sabtu · 2 Shift</h2></div>' +
+          '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn light sm" id="jcsv">⬇ Unduh CSV</button>' +
           '<button class="btn primary sm" id="jrotasi">↻ Rotasi Otomatis</button>' +
           '<button class="btn danger sm" id="jkosong">Kosongkan</button></div>' +
         '</div>' +
@@ -276,7 +291,7 @@
     document.querySelectorAll("[data-hari]").forEach((s) => s.onchange = () => {
       const hari = Number(s.dataset.hari), shift = Number(s.dataset.shift), pid = s.value;
       S.jadwal = S.jadwal.filter((j) => !(j.hari === hari && j.shift === shift));
-      if (pid) S.jadwal.push({ id: uid(), hari, shift, petugasId: pid });
+      if (pid) S.jadwal.push({ id: uid(), hari: hari, shift: shift, petugasId: pid });
       persist("jadwal", S.jadwal); emit(); renderJadwal();
     });
     el("#jrotasi").onclick = () => { if (confirm("Susun rotasi otomatis dari daftar petugas? Jadwal lama diganti.")) { S.jadwal = generateJadwal(); persist("jadwal", S.jadwal); emit(); renderJadwal(); } };
@@ -286,7 +301,7 @@
       HARI_KERJA.forEach((h) => [1, 2].forEach((sh) => {
         const j = S.jadwal.find((x) => x.hari === h && x.shift === sh);
         const p = j ? S.petugas.find((x) => x.id === j.petugasId) : null;
-        data.push([HARI[h], "Shift " + sh + " (" + SHIFT[sh].nama + ")", p ? p.nama : "", p && p.nip || ""]);
+        data.push([HARI[h], "Shift " + sh + " (" + SHIFT[sh].nama + ")", p ? p.nama : "", (p && p.nip) || ""]);
       }));
       downloadCsv("jadwal-piket-sipelok.csv", data);
     };
@@ -296,11 +311,11 @@
   function renderPetugas() {
     el("#isi").innerHTML =
       '<div class="card pad rise">' +
-        '<span class="eyebrow">Kelola Petugas Piket</span><h2 class="display mt-1">Daftar Petugas (' + S.petugas.length + ')</h2>' +
+        '<span class="eyebrow">Kelola Petugas Piket</span><h2 class="display mt-1" style="font-size:1.5rem">Daftar Petugas (' + S.petugas.length + ')</h2>' +
         '<div class="row mt-2" style="flex-wrap:wrap;gap:8px"><input class="input grow" id="pnama" placeholder="Nama lengkap & gelar" style="min-width:220px">' +
         '<input class="input inline" id="pnip" placeholder="NIP (opsional)" style="width:200px">' +
         '<button class="btn primary" id="ptambah">+ Tambah</button></div>' +
-        '<p id="ppesan" class="small" style="color:var(--ruby-700);margin-top:8px"></p>' +
+        '<p id="ppesan" class="small" style="color:var(--ruby-700);margin-top:8px;min-height:1em"></p>' +
         '<div class="mt-2" style="display:flex;flex-direction:column;gap:8px">' +
         S.petugas.map((p) => {
           const n = S.jadwal.filter((j) => j.petugasId === p.id).length;
@@ -312,12 +327,13 @@
     el("#ptambah").onclick = () => {
       const nama = el("#pnama").value.trim();
       if (!nama) { el("#ppesan").textContent = "Nama wajib diisi."; return; }
-      S.petugas.push({ id: uid(), nama, nip: el("#pnip").value.trim() || null });
+      S.petugas.push({ id: uid(), nama: nama, nip: el("#pnip").value.trim() || null });
       persist("petugas", S.petugas); emit(); renderPetugas();
     };
+    el("#pnama").onkeydown = (e) => { if (e.key === "Enter") el("#ptambah").click(); };
     document.querySelectorAll("[data-hapus]").forEach((b) => b.onclick = () => {
       const p = S.petugas.find((x) => x.id === b.dataset.hapus);
-      if (confirm("Hapus " + p.nama + " beserta slot jadwalnya? Riwayat presensi tetap tersimpan.")) {
+      if (p && confirm("Hapus " + p.nama + " beserta slot jadwalnya? Riwayat presensi tetap tersimpan.")) {
         S.petugas = S.petugas.filter((x) => x.id !== p.id);
         S.jadwal = S.jadwal.filter((j) => j.petugasId !== p.id);
         persistDelete("petugas", p.id, S.petugas); persist("jadwal", S.jadwal); emit(); renderPetugas();
@@ -331,16 +347,16 @@
     el("#isi").innerHTML =
       '<div class="grid-2">' +
       '<div class="card pad rise">' +
-        '<span class="eyebrow">Akun Akses</span><h2 class="display mt-1">Kelola Akun</h2>' +
+        '<span class="eyebrow">Akun Akses</span><h2 class="display mt-1" style="font-size:1.5rem">Kelola Akun</h2>' +
         '<div class="mt-1" style="display:flex;flex-direction:column;gap:8px">' +
         S.accounts.map((a) => '<div class="row card" style="padding:12px 16px"><span class="ini">' + inisial(a.nama) + '</span>' +
-          '<div class="grow"><b>' + esc(a.nama) + '</b> ' + (a.username === akun.username ? '<span class="small accent">(Anda)</span>' : '') +
-          '<br><span class="small muted tnum">@' + esc(a.username) + ' · ' + a.role + '</span></div>' +
+          '<div class="grow"><b>' + esc(a.nama) + '</b> ' + (a.username === akun.username ? '<span class="small" style="color:var(--brand-700);font-weight:800">(Anda)</span>' : '') +
+          '<br><span class="small muted tnum">@' + esc(a.username) + ' · ' + (a.role === "admin" ? "Admin penuh" : "Lihat saja") + '</span></div>' +
           (isAdmin ? '<button class="btn danger sm" data-hakun="' + esc(a.username) + '">Hapus</button>' : '') + '</div>').join("") + '</div>' +
         (isAdmin ? '<hr class="sep"><label class="f">Nama Pengguna</label><input class="input" id="au"><label class="f mt-1">Nama Tampilan</label><input class="input" id="an">' +
           '<label class="f mt-1">Kata Sandi</label><input class="input" id="ap" type="password"><label class="f mt-1">Peran</label>' +
           '<select class="input" id="ar"><option value="viewer">Lihat saja</option><option value="admin">Admin penuh</option></select>' +
-          '<p id="apesan" class="small" style="color:var(--ruby-700);margin-top:8px"></p>' +
+          '<p id="apesan" class="small" style="color:var(--ruby-700);margin-top:8px;min-height:1em"></p>' +
           '<button class="btn primary mt-1" id="atambah">+ Tambah Akun</button>' : '<p class="small muted mt-2">Hanya admin yang dapat mengelola akun.</p>') +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:18px">' +
@@ -348,12 +364,12 @@
           '<input class="input mt-1" id="gc" type="password" placeholder="Kata sandi lama">' +
           '<input class="input mt-1" id="gn" type="password" placeholder="Kata sandi baru (min. 6)">' +
           '<input class="input mt-1" id="gk" type="password" placeholder="Ulangi kata sandi baru">' +
-          '<p id="gpesan" class="small mt-1"></p>' +
+          '<p id="gpesan" class="small mt-1" style="min-height:1em"></p>' +
           '<button class="btn primary mt-1" id="gsimpan">Simpan Sandi Baru</button></div>' +
-        '<div class="card pad rise"><span class="eyebrow">Data & Penyimpanan</span>' + modeBadgeHtml() +
-          '<p class="small muted mt-1">' + (getMode() === "db" ? 'Data tersimpan terpusat di <b>MySQL</b> via api.php; semua perangkat melihat data sama.' : 'api.php tidak terdeteksi — data tersimpan lokal di perangkat ini saja.') + '</p>' +
-          (isAdmin ? '<div class="row mt-2"><button class="btn light sm" id="dseed">Muat Data Contoh</button><button class="btn danger sm" id="dhapus">Hapus Semua Data</button></div>' : '') +
-          '<p class="small muted mt-1">Menghapus data tidak menghapus akun.</p></div>' +
+        '<div class="card pad rise"><span class="eyebrow">Data & Penyimpanan</span><div class="mt-1">' + modeBadgeHtml() + '</div>' +
+          '<p class="small muted mt-1">' + (getMode() === "db" ? 'Data tersimpan terpusat di <b>MySQL</b> melalui api.php; semua perangkat melihat data yang sama.' : 'api.php tidak terdeteksi — data tersimpan lokal di perangkat ini saja (mode demo).') + '</p>' +
+          (isAdmin ? '<div class="row mt-2" style="gap:8px;flex-wrap:wrap"><button class="btn light sm" id="dseed">Muat Data Contoh</button><button class="btn danger sm" id="dhapus">Hapus Semua Data</button></div>' : '') +
+          '<p class="small muted mt-1" style="margin-bottom:0">Menghapus data tidak menghapus akun.</p></div>' +
       '</div></div>';
 
     if (isAdmin) {
@@ -365,19 +381,22 @@
       document.querySelectorAll("[data-hakun]").forEach((b) => b.onclick = () => {
         if (confirm("Hapus akun @" + b.dataset.hakun + "?")) { const r = removeAccount(b.dataset.hakun); if (!r.ok) alert(r.error); else renderAkun(); }
       });
-      el("#dseed").onclick = () => { if (confirm("Muat ulang data contoh? Data saat ini diganti.")) { seedDemo(true); renderAkun(); } };
+      el("#dseed").onclick = () => { if (confirm("Muat ulang data contoh? Data petugas, jadwal & presensi saat ini diganti.")) { seedDemo(true); renderAkun(); } };
       el("#dhapus").onclick = () => {
         if (confirm("Hapus SEMUA petugas, jadwal, sesi & presensi?")) {
           S.petugas = []; S.records = []; S.jadwal = []; S.sessions = [];
-          ["petugas", "records", "jadwal", "sessions"].forEach((t) => { persistDelete(t, "", []); if (getMode() === "db") http("clear", { table: t }); });
+          ["petugas", "records", "jadwal", "sessions"].forEach((t) => {
+            lsWrite(LS[t], []);
+            if (getMode() === "db") http("clear", { table: t }).catch(function () {});
+          });
           emit(); renderAkun();
         }
       };
     }
-    el("#gsimpan").onclick = async () => {
+    el("#gsimpan").onclick = () => {
       if (el("#gn").value !== el("#gk").value) { el("#gpesan").innerHTML = '<span style="color:var(--ruby-700)">Konfirmasi tidak sama.</span>'; return; }
-      const r = await changePassword(akun.username, el("#gc").value, el("#gn").value);
-      el("#gpesan").innerHTML = r.ok ? '<span style="color:var(--lagoon-700)">Kata sandi berhasil diganti.</span>' : '<span style="color:var(--ruby-700)">' + r.error + '</span>';
+      const r = changePassword(akun.username, el("#gc").value, el("#gn").value);
+      el("#gpesan").innerHTML = r.ok ? '<span style="color:var(--lagoon-700)">Kata sandi berhasil diganti.</span>' : '<span style="color:var(--ruby-700)">' + esc(r.error) + '</span>';
       if (r.ok) { el("#gc").value = el("#gn").value = el("#gk").value = ""; }
     };
   }
@@ -393,10 +412,10 @@
     } catch (err) {
       console.error("SIPELOK gagal dimulai:", err);
       el("#app").innerHTML =
-        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink-900);color:var(--mist-50)">' +
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink-900)">' +
         '<div class="card pad" style="max-width:440px"><span class="eyebrow">Halaman tidak dapat dimulai</span>' +
-        '<p class="mt-1">Terjadi galat: <b>' + esc(String(err && err.message || err)) + '</b></p>' +
-        '<p class="small muted mt-1">Muat ulang halaman (Ctrl+R). Bila berulang, hapus data situs browser untuk halaman ini, atau salin ulang seluruh folder <b>standalone</b> ke htdocs.</p>' +
+        '<p class="mt-1">Terjadi galat: <b>' + esc(String((err && err.message) || err)) + '</b></p>' +
+        '<p class="small muted mt-1">Muat ulang halaman (Ctrl+R). Bila berulang, hapus data situs browser untuk halaman ini, lalu salin ulang folder <b>standalone</b>.</p>' +
         '<button class="btn primary mt-2" onclick="location.reload()">Muat Ulang</button></div></div>';
     }
   })();

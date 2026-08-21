@@ -1,16 +1,15 @@
 <?php
 /* ============================================================
-   SIPELOK — Konfigurasi (sesuaikan dengan server Anda)
-   Nilai di bawah adalah default XAMPP; biasanya TIDAK perlu diubah.
+   SIPELOK — konfigurasi database & kunci API
+   Sesuaikan empat nilai di bawah dengan XAMPP Anda.
+   Nilai bawaan sudah cocok untuk XAMPP standar.
    ============================================================ */
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'sipelok');
-define('DB_USER', 'root');
-define('DB_PASS', '');
 
-/* Kunci rahasia untuk mutasi data (ubah saat deploy agar aman).
-   Frontend mengirimnya otomatis lewat header X-Sipelok-Key. */
-define('API_KEY', 'sipelok-konawe-2024');
+const DB_HOST = '127.0.0.1';
+const DB_NAME = 'sipelok';
+const DB_USER = 'root';
+const DB_PASS = '';
 
-/* Zona waktu kantor: WITA (Konawe). Sesuaikan bila perlu. */
-date_default_timezone_set('Asia/Makassar');
+/* Kunci rahasia untuk permintaan ubah-data (save/delete/clear).
+   Samakan dengan nilai API_KEY di js/util.js bila Anda mengubahnya. */
+const API_KEY = 'sipelok-konawe-2024';

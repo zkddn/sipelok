@@ -3,138 +3,123 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SIPELOK · Presensi Piket Loket — BPS Kab. Konawe</title>
+<title>SIPELOK · BPS Kab. Konawe</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/gaya.css" />
 </head>
-<body class="bg-board">
-
-  <header class="topbar" style="background:transparent;border-bottom-color:rgba(255,255,255,.08)">
-    <div class="wrap">
-      <a class="brandmark" href="index.html">
-        <span class="mk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>
-        <span><b>SIPELOK</b><small>BPS Kab. Konawe</small></span>
-      </a>
-      <div class="grow"></div>
-      <span id="modeBadge"></span>
-      <a class="btn ghost sm hide-sm" href="panduan.html">📘 Panduan</a>
-    </div>
-  </header>
-
-  <main class="wrap" style="padding-top:44px;padding-bottom:60px">
-    <div class="grid-loket">
-
-      <!-- ===== kiri: jam & status ===== -->
-      <section class="rise">
-        <span class="eyebrow"><span class="dot live"></span> Loket Pelayanan Terpadu</span>
-        <h1 class="display" style="margin-top:14px">Presensi Piket<br><span class="accent">Loket Pelayanan</span></h1>
-        <p class="mt-2" style="color:var(--mist-300);max-width:430px">
-          Petugas piket memindai QR di layar loket untuk mencatat <b style="color:#fff">jam mulai</b> dan
-          <b style="color:#fff">jam selesai</b>, lengkap dengan <b style="color:#fff">foto atribut</b>.
-          Tanpa npm — murni <b style="color:#fff">HTML + PHP + MySQL</b>.
-        </p>
-
-        <div class="mt-3">
-          <div class="clock tnum" id="jam">--.--<span class="sec" id="detik">--</span></div>
-          <div class="row mt-1" style="flex-wrap:wrap">
-            <span class="badge brand" id="shiftBadge">—</span>
-            <span style="color:var(--mist-300)" id="tanggal" class="small"></span>
-          </div>
-        </div>
-
-        <div class="card dark pad mt-3 rise" style="animation-delay:.15s">
-          <span class="eyebrow" style="color:var(--brand-400)">Petugas Piket Hari Ini</span>
-          <div id="piketHariIni" class="mt-1" style="display:flex;flex-direction:column;gap:10px"></div>
-        </div>
-      </section>
-
-      <!-- ===== kanan: pilihan akses ===== -->
-      <section>
-        <span class="eyebrow" style="color:var(--mist-300)">Pilih Peran</span>
-        <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px">
-
-          <a href="loket.html" class="card dark pad rise" style="text-decoration:none;color:inherit;display:flex;gap:16px;align-items:center;transition:transform .2s,border-color .2s" onmouseover="this.style.borderColor='var(--brand-500)';this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='none'">
-            <span class="mk" style="width:52px;height:52px;border-radius:16px;background:var(--brand-500);color:#16100a;display:flex;align-items:center;justify-content:center;flex:none"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="12.5" rx="2"/><path d="M9 21h6M12 17v4M7 13.5v-3M10.5 13.5V8M14 13.5v-4M17.5 13.5v-2"/></svg></span>
-            <span><h3 class="display" style="color:#fff">Layar Loket <span class="accent">→</span></h3>
-            <span class="small" style="color:var(--mist-300)">Dipasang di PC front office: menampilkan QR untuk discan petugas.</span></span>
-          </a>
-
-          <a href="admin.html" class="card dark pad rise" style="text-decoration:none;color:inherit;display:flex;gap:16px;align-items:center;transition:transform .2s,border-color .2s;animation-delay:.08s" onmouseover="this.style.borderColor='var(--brand-500)';this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='none'">
-            <span class="mk" style="width:52px;height:52px;border-radius:16px;background:var(--lagoon-500);color:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3 5 5.8v5.4c0 4.5 3 7.8 7 9.3 4-1.5 7-4.8 7-9.3V5.8L12 3Z"/><path d="m9 11.5 2.2 2.2L15.5 9"/></svg></span>
-            <span><h3 class="display" style="color:#fff">Admin & Rekap <span class="accent">→</span></h3>
-            <span class="small" style="color:var(--mist-300)">Rekap presensi, jadwal piket, kelola petugas & akun. <b>admin / bpskonawe</b></span></span>
-          </a>
-
-          <a href="panduan.html" class="card dark pad rise" style="text-decoration:none;color:inherit;display:flex;gap:16px;align-items:center;transition:transform .2s,border-color .2s;animation-delay:.16s" onmouseover="this.style.borderColor='var(--brand-500)';this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='none'">
-            <span class="mk" style="width:52px;height:52px;border-radius:16px;background:var(--amberx-500);color:#16100a;display:flex;align-items:center;justify-content:center;flex:none"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M8 7h7M8 11h7"/></svg></span>
-            <span><h3 class="display" style="color:#fff">Panduan Instalasi <span class="accent">→</span></h3>
-            <span class="small" style="color:var(--mist-300)">Pasang di XAMPP kantor dalam ±10 menit, tanpa npm / Node.js.</span></span>
-          </a>
-
-        </div>
-
-        <div class="card dark pad mt-3 rise" style="animation-delay:.22s">
-          <span class="eyebrow" style="color:var(--mist-300)">Untuk Petugas Piket</span>
-          <p class="small mt-1" style="color:var(--mist-300)">
-            Scan QR yang tampil di <b style="color:#fff">Layar Loket</b> menggunakan kamera HP — tidak perlu mengetik alamat.
-            Bila HP dan PC satu jaringan, halaman scan terbuka otomatis.
-          </p>
-        </div>
-      </section>
-    </div>
-
-    <hr class="sep" style="border-color:rgba(255,255,255,.12);margin-top:44px" />
-
-    <!-- ===== instalasi cepat ===== -->
-    <section class="rise" style="animation-delay:.1s">
-      <span class="eyebrow" style="color:var(--brand-400)">Instalasi Cepat — Tanpa npm</span>
-      <h2 class="display" style="color:#fff;margin-top:8px">Siap jalan dalam 4 langkah</h2>
-      <div class="grid-2 mt-2" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
-        <div class="step card dark pad"><span class="n">1</span><span><b style="color:#fff">Pasang XAMPP</b><br><span class="small" style="color:var(--mist-300)">Jalankan Apache + MySQL dari XAMPP Control Panel.</span></span></div>
-        <div class="step card dark pad"><span class="n">2</span><span><b style="color:#fff">Salin folder</b><br><span class="small" style="color:var(--mist-300)">Taruh folder <code>sipelok</code> ke <code>C:\xampp\htdocs\</code>.</span></span></div>
-        <div class="step card dark pad"><span class="n">3</span><span><b style="color:#fff">Impor database</b><br><span class="small" style="color:var(--mist-300)">Buka phpMyAdmin → Import → pilih <code>database/sipelok.sql</code>.</span></span></div>
-        <div class="step card dark pad"><span class="n">4</span><span><b style="color:#fff">Buka aplikasi</b><br><span class="small" style="color:var(--mist-300)">Akses <code>http://localhost/sipelok/</code> — badge berubah <b>MySQL Aktif</b>.</span></span></div>
-      </div>
-      <p class="small mt-2" style="color:var(--mist-400)">
-        Rincian lengkap (akses lewat IP kantor untuk HP petugas, endpoint API, keamanan) ada di
-        <a href="panduan.html" style="color:var(--brand-400)">Panduan Instalasi</a>.
-      </p>
-    </section>
-  </main>
+<body class="bg-paper">
+<script>
+  /* penangkap galat global — tidak ada lagi layar kosong tanpa pesan */
+  window.onerror = function (msg, src, line) {
+    var t = document.getElementById("app");
+    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p><p style="opacity:.7;margin:0">Muat ulang halaman (Ctrl+R), atau salin ulang folder <b>standalone</b> secara lengkap ke htdocs.</p></div>';
+  };
+</script>
+<div id="app"></div>
 
 <script src="js/util.js"></script>
 <script>
-  function tick() {
-    const d = new Date();
-    el("#jam").innerHTML = pad(d.getHours()) + "." + pad(d.getMinutes()) + '<span class="sec">:' + pad(d.getSeconds()) + '</span>';
-    const sh = shiftForTime(d);
-    el("#shiftBadge").textContent = SHIFT[sh].label + " · " + SHIFT[sh].nama + " — " + SHIFT[sh].waktu;
-    el("#tanggal").textContent = fmtDateLong(todayStr(d));
-  }
-  function renderPiket() {
-    const box = el("#piketHariIni");
-    const jd = jadwalUntuk(new Date());
-    if (jd.length === 0) { box.innerHTML = '<span class="small" style="color:var(--mist-400)">Belum ada jadwal untuk hari ini (atur di Admin → Jadwal Piket).</span>'; return; }
-    box.innerHTML = [1, 2].map((sh) => {
+  let lastShift = null;
+
+  function render() {
+    const now = new Date();
+    const shift = shiftForTime(now);
+    lastShift = shift;
+    const jd = jadwalUntuk(now);
+    const t = todayStr();
+
+    const barisPiket = [1, 2].map((sh) => {
       const list = jd.filter((j) => j.shift === sh);
-      if (!list.length) return "";
-      const aktif = shiftForTime(new Date()) === sh;
-      const nama = list.map((j) => { const p = S.petugas.find((x) => x.id === j.petugasId); return p ? p.nama : "—"; }).join(" & ");
-      return '<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid ' + (aktif ? "var(--brand-500)" : "rgba(255,255,255,.1)") + ';border-radius:12px;padding:10px 14px">' +
-        '<span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + '</span>' +
-        '<b style="color:#fff;font-size:.9rem">' + esc(nama) + '</b>' +
-        (aktif ? '<span class="badge amber" style="margin-left:auto">berjalan</span>' : '') + '</div>';
+      const isi = list.length === 0
+        ? '<span class="small muted">Belum dijadwalkan</span>'
+        : list.map((j) => {
+            const p = S.petugas.find((x) => x.id === j.petugasId);
+            const rec = S.records.find((r) => r.date === t && r.shift === sh && r.petugasId === j.petugasId);
+            let st = '<span class="badge amber">Belum presensi</span>';
+            if (rec && rec.keluar) st = '<span class="badge mist">Selesai ' + fmtHM(rec.masuk) + '–' + fmtHM(rec.keluar) + '</span>';
+            else if (rec) st = '<span class="badge lagoon">Bertugas sejak ' + fmtHM(rec.masuk) + '</span>';
+            return '<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap"><span class="row"><span class="ini on-light" style="width:32px;height:32px;font-size:.85rem">' + inisial(p ? p.nama : "?") + '</span><b>' + esc(p ? p.nama : "—") + '</b></span>' + st + '</div>';
+          }).join("");
+      return '<div style="border:1px solid var(--mist-200);border-radius:14px;padding:14px 16px;background:' + (sh === shift ? "var(--brand-50)" : "#fff") + '">' +
+        '<div class="row" style="justify-content:space-between"><span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + ' · ' + SHIFT[sh].nama + '</span>' +
+        (sh === shift ? '<span class="small" style="color:var(--brand-700);font-weight:800">● sedang berjalan</span>' : '<span class="small muted tnum">' + SHIFT[sh].waktu + '</span>') + '</div>' +
+        '<div class="mt-1" style="display:flex;flex-direction:column;gap:9px">' + isi + '</div></div>';
     }).join("");
-  }
-  (async () => {
-    await init();
+
+    const tokenKini = getSessionFor(shift).token;
+
+    el("#app").innerHTML =
+      '<header class="topbar"><div class="wrap">' +
+        '<span class="brandmark"><span class="mk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>' +
+        '<span><b>SIPELOK</b><small>BPS Kabupaten Konawe</small></span></span>' +
+        '<div class="grow"></div>' +
+        '<span class="hide-sm" id="modeBadge"></span>' +
+        '<span class="badge ghost tnum hide-sm">' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</span>' +
+      '</div></header>' +
+
+      '<main class="wrap" style="padding-top:34px;padding-bottom:56px">' +
+        '<div class="grid-loket">' +
+          '<section>' +
+            '<span class="eyebrow"><span class="dot live-dot"></span> Loket Pelayanan Terpadu</span>' +
+            '<h1 class="display" style="font-size:clamp(2.3rem,5.5vw,3.6rem);margin-top:14px">Selamat datang di<br><span style="color:var(--brand-600)">Pelayanan Statistik</span> Konawe.</h1>' +
+            '<p class="muted mt-1" style="max-width:46ch">Petugas piket menjaga loket dalam dua shift setiap hari kerja. Pilih peran Anda di bawah — presensi cukup dengan memindai QR di layar loket.</p>' +
+            '<div class="row mt-2" style="flex-wrap:wrap;gap:12px">' +
+              '<span class="chipshift s' + shift + '">' + SHIFT[shift].label + ' · ' + SHIFT[shift].nama + ' ' + SHIFT[shift].waktu + ' WITA</span>' +
+              '<span class="small muted capitalize">' + now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + '</span>' +
+            '</div>' +
+
+            '<div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">' +
+              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Loket — PC Front Office <span class="badge mist" style="font-size:.56rem">QR</span></b><small>Buka di komputer loket: menampilkan QR presensi & umpan langsung.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="scan.html?token=' + tokenKini + '"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Scan HP</b><small>Tautan shift yang sedang berjalan: <span class="tnum">' + tokenKini + '</span>. Di lapangan, pindai QR dari layar loket.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-c hoverable rise" style="animation-delay:.14s" href="admin.html"><span class="plat">C</span><span class="grow"><b>Admin & Rekap</b><small>Rekap presensi, jadwal piket mingguan, kelola petugas & akun.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+            '</div>' +
+          '</section>' +
+
+          '<aside>' +
+            '<div class="card pad rise" style="animation-delay:.1s">' +
+              '<div class="row" style="justify-content:space-between"><span class="eyebrow">Piket Hari Ini</span><a class="small" href="admin.html" style="font-weight:800;text-decoration:none">Atur jadwal →</a></div>' +
+              '<div class="mt-1" style="display:flex;flex-direction:column;gap:12px">' + barisPiket + '</div>' +
+            '</div>' +
+            '<div class="card dark pad rise mt-2" style="background:var(--ink-900);color:var(--mist-50);animation-delay:.18s">' +
+              '<span class="eyebrow on-dark">Jam Pelayanan</span>' +
+              '<div class="clock tnum mt-1" id="jamBesar" style="color:var(--mist-50)">' + pad(now.getHours()) + '.' + pad(now.getMinutes()) + '<span class="sec">.' + pad(now.getSeconds()) + '</span></div>' +
+              '<p class="small mt-1" style="color:var(--mist-300)">Loket dilayani petugas piket pada jam shift. Di luar itu, gunakan <b>Pojok Statistik Digital</b> atau tinggalkan pesan layanan.</p>' +
+            '</div>' +
+          '</aside>' +
+        '</div>' +
+      '</main>' +
+
+      '<footer style="border-top:1px solid var(--mist-200);padding:18px 0;background:#fff">' +
+        '<div class="wrap row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+          '<span class="small muted"><b style="color:var(--ink-900)">SIPELOK</b> · Badan Pusat Statistik Kabupaten Konawe</span>' +
+          '<a class="small" href="panduan.html" style="font-weight:800;text-decoration:none">Panduan Instalasi →</a>' +
+        '</div>' +
+      '</footer>';
+
     el("#modeBadge").innerHTML = modeBadgeHtml();
-    renderPiket();
-    tick(); setInterval(tick, 1000);
-    onChange(renderPiket);
-    startSync();
+  }
+
+  /* jam diperbarui ringan tiap detik; render penuh hanya saat data/shift berubah */
+  setInterval(() => {
+    const now = new Date();
+    const j = el("#jamBesar");
+    if (j) j.innerHTML = pad(now.getHours()) + "." + pad(now.getMinutes()) + '<span class="sec">.' + pad(now.getSeconds()) + "</span>";
+    if (shiftForTime(now) !== lastShift) render();
+  }, 1000);
+
+  (async () => {
+    try {
+      await init();
+      render();
+      startSync();
+      onChange(render);
+    } catch (err) {
+      console.error(err);
+      el("#app").innerHTML = '<div style="max-width:520px;margin:14vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Gagal memuat aplikasi</b><p>' + String(err && err.message || err) + '</p></div>';
+    }
   })();
 </script>
 </body>
