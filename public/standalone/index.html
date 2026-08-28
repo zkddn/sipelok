@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SIPELOK · BPS Kab. Konawe</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/gaya.css" />
+</head>
+<body class="bg-paper">
+<script>
+  /* penangkap galat global — tidak ada lagi layar kosong tanpa pesan */
+  window.onerror = function (msg, src, line) {
+    var t = document.getElementById("app");
+    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p><p style="opacity:.7;margin:0">Muat ulang halaman (Ctrl+R), atau salin ulang folder <b>standalone</b> secara lengkap ke htdocs.</p></div>';
+  };
+</script>
+<div id="app"></div>
+
+<script src="js/util.js"></script>
+<script>
+  let lastShift = null;
+
+  function render() {
+    const now = new Date();
+    const shift = shiftForTime(now);
+    lastShift = shift;
+    const jd = jadwalUntuk(now);
+    const t = todayStr();
+
+    const barisPiket = [1, 2].map((sh) => {
+      const list = jd.filter((j) => j.shift === sh);
+      const isi = list.length === 0
+        ? '<span class="small muted">Belum dijadwalkan</span>'
+        : list.map((j) => {
+            const p = S.petugas.find((x) => x.id === j.petugasId);
+            const rec = S.records.find((r) => r.date === t && r.shift === sh && r.petugasId === j.petugasId);
+            let st = '<span class="badge amber">Belum presensi</span>';
+            if (rec && rec.keluar) st = '<span class="badge mist">Selesai ' + fmtHM(rec.masuk) + '–' + fmtHM(rec.keluar) + '</span>';
+            else if (rec) st = '<span class="badge lagoon">Bertugas sejak ' + fmtHM(rec.masuk) + '</span>';
+            return '<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap"><span class="row"><span class="ini on-light" style="width:32px;height:32px;font-size:.85rem">' + inisial(p ? p.nama : "?") + '</span><b>' + esc(p ? p.nama : "—") + '</b></span>' + st + '</div>';
+          }).join("");
+      return '<div style="border:1px solid var(--mist-200);border-radius:14px;padding:14px 16px;background:' + (sh === shift ? "var(--brand-50)" : "#fff") + '">' +
+        '<div class="row" style="justify-content:space-between"><span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + ' · ' + SHIFT[sh].nama + '</span>' +
+        (sh === shift ? '<span class="small" style="color:var(--brand-700);font-weight:800">● sedang berjalan</span>' : '<span class="small muted tnum">' + SHIFT[sh].waktu + '</span>') + '</div>' +
+        '<div class="mt-1" style="display:flex;flex-direction:column;gap:9px">' + isi + '</div></div>';
+    }).join("");
+
+    const tokenKini = getSessionFor(shift).token;
+
+    el("#app").innerHTML =
+      '<header class="topbar"><div class="wrap">' +
+        '<span class="brandmark"><span class="mk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>' +
+        '<span><b>SIPELOK</b><small>BPS Kabupaten Konawe</small></span></span>' +
+        '<div class="grow"></div>' +
+        '<span class="hide-sm" id="modeBadge"></span>' +
+        '<span class="badge ghost tnum hide-sm">' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</span>' +
+      '</div></header>' +
+
+      '<main class="wrap" style="padding-top:34px;padding-bottom:56px">' +
+        '<div class="grid-loket">' +
+          '<section>' +
+            '<span class="eyebrow"><span class="dot live-dot"></span> Loket Pelayanan Terpadu</span>' +
+            '<h1 class="display" style="font-size:clamp(2.3rem,5.5vw,3.6rem);margin-top:14px">Selamat datang di<br><span style="color:var(--brand-600)">Pelayanan Statistik</span> Konawe.</h1>' +
+            '<p class="muted mt-1" style="max-width:46ch">Petugas piket menjaga loket dalam dua shift setiap hari kerja. Pilih peran Anda di bawah — presensi cukup dengan memindai QR di layar loket.</p>' +
+            '<div class="row mt-2" style="flex-wrap:wrap;gap:12px">' +
+              '<span class="chipshift s' + shift + '">' + SHIFT[shift].label + ' · ' + SHIFT[shift].nama + ' ' + SHIFT[shift].waktu + ' WITA</span>' +
+              '<span class="small muted capitalize">' + now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + '</span>' +
+            '</div>' +
+
+            '<div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">' +
+              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Loket — PC Front Office <span class="badge mist" style="font-size:.56rem">QR</span></b><small>Buka di komputer loket: menampilkan QR presensi & umpan langsung.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="scan.html?token=' + tokenKini + '"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Scan HP</b><small>Tautan shift yang sedang berjalan: <span class="tnum">' + tokenKini + '</span>. Di lapangan, pindai QR dari layar loket.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-c hoverable rise" style="animation-delay:.14s" href="admin.html"><span class="plat">C</span><span class="grow"><b>Admin & Rekap</b><small>Rekap presensi, jadwal piket mingguan, kelola petugas & akun.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+            '</div>' +
+          '</section>' +
+
+          '<aside>' +
+            '<div class="card pad rise" style="animation-delay:.1s">' +
+              '<div class="row" style="justify-content:space-between"><span class="eyebrow">Piket Hari Ini</span><a class="small" href="admin.html" style="font-weight:800;text-decoration:none">Atur jadwal →</a></div>' +
+              '<div class="mt-1" style="display:flex;flex-direction:column;gap:12px">' + barisPiket + '</div>' +
+            '</div>' +
+            '<div class="card dark pad rise mt-2" style="background:var(--ink-900);color:var(--mist-50);animation-delay:.18s">' +
+              '<span class="eyebrow on-dark">Jam Pelayanan</span>' +
+              '<div class="clock tnum mt-1" id="jamBesar" style="color:var(--mist-50)">' + pad(now.getHours()) + '.' + pad(now.getMinutes()) + '<span class="sec">.' + pad(now.getSeconds()) + '</span></div>' +
+              '<p class="small mt-1" style="color:var(--mist-300)">Loket dilayani petugas piket pada jam shift. Di luar itu, gunakan <b>Pojok Statistik Digital</b> atau tinggalkan pesan layanan.</p>' +
+            '</div>' +
+          '</aside>' +
+        '</div>' +
+      '</main>' +
+
+      '<footer style="border-top:1px solid var(--mist-200);padding:18px 0;background:#fff">' +
+        '<div class="wrap row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+          '<span class="small muted"><b style="color:var(--ink-900)">SIPELOK</b> · Badan Pusat Statistik Kabupaten Konawe</span>' +
+          '<a class="small" href="panduan.html" style="font-weight:800;text-decoration:none">Panduan Instalasi →</a>' +
+        '</div>' +
+      '</footer>';
+
+    el("#modeBadge").innerHTML = modeBadgeHtml();
+  }
+
+  /* jam diperbarui ringan tiap detik; render penuh hanya saat data/shift berubah */
+  setInterval(() => {
+    const now = new Date();
+    const j = el("#jamBesar");
+    if (j) j.innerHTML = pad(now.getHours()) + "." + pad(now.getMinutes()) + '<span class="sec">.' + pad(now.getSeconds()) + "</span>";
+    if (shiftForTime(now) !== lastShift) render();
+  }, 1000);
+
+  (async () => {
+    try {
+      await init();
+      render();
+      startSync();
+      onChange(render);
+    } catch (err) {
+      console.error(err);
+      el("#app").innerHTML = '<div style="max-width:520px;margin:14vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Gagal memuat aplikasi</b><p>' + String(err && err.message || err) + '</p></div>';
+    }
+  })();
+</script>
+</body>
+</html>

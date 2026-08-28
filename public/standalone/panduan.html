@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panduan Instalasi · SIPELOK</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/gaya.css" />
+</head>
+<body class="bg-paper">
+<script>
+  window.onerror = function (msg, src, line) {
+    var t = document.getElementById("app");
+    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p></div>';
+  };
+</script>
+<div id="app"></div>
+
+<script src="js/util.js"></script>
+<script>
+  const LANGKAH = [
+    ["Pasang XAMPP", "Unduh dari apachefriends.org, instal, lalu jalankan modul <b>Apache</b> dan <b>MySQL</b> dari XAMPP Control Panel."],
+    ["Salin folder aplikasi", "Salin seluruh folder <b>standalone</b> ke <b>C:\\xampp\\htdocs\\sipelok</b> (nama folder bebas)."],
+    ["Impor database", "Buka <b>http://localhost/phpmyadmin</b> → tab <b>Import</b> → pilih berkas <b>database/sipelok.sql</b> → Go."],
+    ["Sesuaikan config (bila perlu)", "Buka <b>api/config.php</b>. Nilai bawaan (root, tanpa sandi) sudah cocok untuk XAMPP standar."],
+    ["Uji koneksi", "Buka <b>http://localhost/sipelok/api/api.php?action=ping</b> — harus tampil <b>\"ok\":true</b>. Bisa juga lewat tombol uji di bawah."],
+    ["Buka aplikasi", "Buka <b>http://localhost/sipelok/</b> — badge berubah menjadi <b>MySQL Aktif</b>. Masuk admin: <b>admin / bpskonawe</b>."],
+  ];
+
+  const ENDPOINT = [
+    ["ping", "GET", "Cek hidup API + versi MySQL"],
+    ["bootstrap", "GET", "Seluruh data (petugas, presensi, jadwal, akun, sesi)"],
+    ["sig", "GET", "Sidik jari perubahan — dipoll tiap ±3,5 detik untuk sinkronisasi"],
+    ["save?table=…", "POST", "Simpan baris (butuh header X-Sipelok-Key)"],
+    ["delete?table=…&id=…", "POST", "Hapus baris; id presensi boleh banyak (dipisah koma)"],
+    ["clear?table=…", "POST", "Kosongkan tabel (bukan akun)"],
+  ];
+
+  function render() {
+    el("#app").innerHTML =
+      '<header class="topbar"><div class="wrap">' +
+        '<a class="brandmark" href="index.html"><span class="mk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>' +
+        '<span><b>SIPELOK</b><small>Panduan Instalasi</small></span></a>' +
+        '<div class="grow"></div><span id="modeBadge" class="hide-sm"></span>' +
+      '</div></header>' +
+
+      '<main class="wrap" style="padding-top:34px;padding-bottom:60px;max-width:880px">' +
+        '<span class="eyebrow">Untuk Tim IT Kantor</span>' +
+        '<h1 class="display" style="font-size:clamp(2rem,4.5vw,2.9rem);margin-top:12px">Pasang dalam ±10 menit,<br><span style="color:var(--brand-600)">tanpa npm, tanpa Node.js.</span></h1>' +
+        '<p class="muted mt-1" style="max-width:62ch">Aplikasi ini murni <b>HTML + CSS + JavaScript + PHP + MySQL</b>. Yang dibutuhkan hanya XAMPP (atau Apache+PHP+MySQL apa pun) dan sebuah browser.</p>' +
+
+        '<div class="card pad rise mt-3">' +
+          '<span class="eyebrow">Arsitektur</span>' +
+          '<svg viewBox="0 0 720 130" style="width:100%;margin-top:14px" role="img" aria-label="Diagram arsitektur">' +
+            '<g font-family="Plus Jakarta Sans" font-size="13" font-weight="700">' +
+              '<rect x="10" y="35" width="170" height="60" rx="14" fill="#0c2431"/><text x="95" y="62" fill="#f7f4ec" text-anchor="middle">HP Petugas</text><text x="95" y="80" fill="#c3bba6" text-anchor="middle" font-size="11">scan.html</text>' +
+              '<rect x="275" y="35" width="170" height="60" rx="14" fill="#f2691f"/><text x="360" y="62" fill="#1d1206" text-anchor="middle">api.php</text><text x="360" y="80" fill="#4a2408" text-anchor="middle" font-size="11">PHP · satu berkas</text>' +
+              '<rect x="540" y="35" width="170" height="60" rx="14" fill="#17857b"/><text x="625" y="62" fill="#f7f4ec" text-anchor="middle">MySQL</text><text x="625" y="80" fill="#cfe8e2" text-anchor="middle" font-size="11">database sipelok</text>' +
+              '<path class="flowline" d="M180 65 H275" stroke="#f2691f" stroke-width="3" stroke-dasharray="7 6" fill="none"/>' +
+              '<path class="flowline" d="M445 65 H540" stroke="#17857b" stroke-width="3" stroke-dasharray="7 6" fill="none"/>' +
+              '<text x="95" y="120" fill="#4a7891" text-anchor="middle" font-size="11">PC Loket (loket.html) & Admin (admin.html) juga lewat api.php</text>' +
+            '</g>' +
+          '</svg>' +
+        '</div>' +
+
+        '<div class="card pad rise mt-2">' +
+          '<span class="eyebrow">Langkah Instalasi</span>' +
+          '<div class="mt-1" style="display:flex;flex-direction:column;gap:14px">' +
+            LANGKAH.map((l, i) => '<div class="row" style="align-items:flex-start;gap:14px"><span class="ini lg" style="flex:none">' + (i + 1) + '</span><div><b>' + l[0] + '</b><p class="small muted" style="margin:4px 0 0">' + l[1] + '</p></div></div>').join("") +
+          '</div>' +
+        '</div>' +
+
+        '<div class="grid-2 mt-2">' +
+          '<div class="card pad rise">' +
+            '<span class="eyebrow">Uji Koneksi Langsung</span>' +
+            '<div class="row mt-1" style="gap:8px;flex-wrap:wrap">' +
+              '<button class="btn primary sm" id="ujiPing">Uji Ping</button>' +
+              '<button class="btn light sm" id="ujiBoot">Uji Bootstrap</button>' +
+            '</div>' +
+            '<div class="kotak-uji tnum mt-1" id="hasilUji">Hasil uji tampil di sini…</div>' +
+          '</div>' +
+          '<div class="card pad rise">' +
+            '<span class="eyebrow">Isi Folder</span>' +
+            '<pre class="kode mt-1">sipelok/
+├─ index.html      beranda / hub
+├─ loket.html      layar PC front office (QR)
+├─ scan.html       presensi via HP
+├─ admin.html      rekap & pengaturan
+├─ panduan.html    halaman ini
+├─ css/gaya.css
+├─ js/util.js
+├─ api/
+│  ├─ api.php      seluruh endpoint
+│  ├─ config.php   kredensial MySQL & kunci
+│  └─ uploads/     foto atribut tersimpan
+└─ database/
+   └─ sipelok.sql  skema MySQL</pre>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card pad rise mt-2">' +
+          '<span class="eyebrow">Akses dari HP Petugas (satu jaringan)</span>' +
+          '<p class="small muted mt-1">Agar HP dapat membuka aplikasi lewat Wi-Fi kantor:</p>' +
+          '<ol class="small" style="padding-left:20px;margin:8px 0 0;line-height:1.9">' +
+            '<li>Cek IP komputer XAMPP: buka CMD, ketik <b>ipconfig</b> (mis. <b>192.168.1.10</b>).</li>' +
+            '<li>Izinkan Apache & MySQL pada Windows Firewall (akses jaringan privat).</li>' +
+            '<li>Di HP yang satu Wi-Fi, buka <b>http://192.168.1.10/sipelok/</b>.</li>' +
+            '<li>QR di layar loket otomatis memuat alamat tersebut — petugas tinggal memindai.</li>' +
+          '</ol>' +
+          '<p class="small muted mt-1" style="margin-bottom:0"><b>Catatan:</b> gambar QR memakai layanan qrserver.com sehingga PC loket butuh internet. Bila offline, petugas tetap bisa memakai tautan yang tercantum di bawah QR.</p>' +
+        '</div>' +
+
+        '<div class="card pad rise mt-2">' +
+          '<span class="eyebrow">Endpoint API</span>' +
+          '<div class="table-wrap mt-1" style="box-shadow:none">' +
+            '<table style="min-width:560px"><thead><tr><th>Aksi</th><th>Metode</th><th>Keterangan</th></tr></thead><tbody>' +
+            ENDPOINT.map((e) => '<tr><td class="tnum"><b>' + e[0] + '</b></td><td><span class="badge mist">' + e[1] + '</span></td><td class="small">' + e[2] + '</td></tr>').join("") +
+            '</tbody></table>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card pad rise mt-2">' +
+          '<span class="eyebrow">Pemecahan Masalah</span>' +
+          '<div class="mt-1" style="display:flex;flex-direction:column;gap:12px">' +
+            masalah("Badge tetap “Mode Demo” padahal XAMPP jalan", "Buka api/api.php?action=ping langsung. Bila error koneksi MySQL, perbaiki kredensial di api/config.php dan pastikan database <b>sipelok</b> sudah diimpor.") +
+            masalah("Tidak bisa masuk admin", "Akun bawaan dibuat ulang otomatis bila tabel kosong. Bila tetap gagal, jalankan <b>DELETE FROM akun;</b> di phpMyAdmin lalu muat ulang halaman admin — akun <b>admin / bpskonawe</b> dibuat ulang otomatis.") +
+            masalah("Halaman putih / kosong", "Versi ini menampilkan pesan galat, bukan layar kosong. Bila masih kosong, tekan Ctrl+Shift+I → tab Console, baca pesan merahnya; umumnya berkas belum tersalin lengkap.") +
+            masalah("Foto atribut tidak tersimpan", "Pastikan folder <b>api/uploads/</b> dapat ditulis oleh Apache (Linux: <b>chmod -R 775 api/uploads</b>; XAMPP Windows biasanya sudah bisa).") +
+            masalah("Rekap terlalu penuh", "Di tab Rekap: ekspor CSV → centang catatan lama (atau pilih semua) → <b>Hapus Terpilih</b>. Berkas foto ikut terhapus dari server.") +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card dark pad rise mt-2" style="background:var(--ink-900);color:var(--mist-50)">' +
+          '<span class="eyebrow on-dark">Alur Harian</span>' +
+          '<p class="small mt-1" style="color:var(--mist-300);margin-bottom:0">Pagi: buka <b>loket.html</b> di PC front office → petugas shift pagi memindai QR & berfoto atribut → feed muncul seketika. Siang: QR otomatis berganti shift 2. Sore/mingguan: admin membuka <b>admin.html</b> → cek rekap → ekspor CSV untuk laporan.</p>' +
+        '</div>' +
+      '</main>' +
+
+      '<footer style="border-top:1px solid var(--mist-200);padding:18px 0;background:#fff">' +
+        '<div class="wrap small muted">SIPELOK · Badan Pusat Statistik Kabupaten Konawe · murni HTML + PHP + MySQL</div>' +
+      '</footer>';
+
+    el("#modeBadge").innerHTML = modeBadgeHtml();
+
+    el("#ujiPing").onclick = async () => {
+      el("#hasilUji").textContent = "Menguji ping…";
+      try {
+        const j = await http("ping");
+        el("#hasilUji").innerHTML = j.ok
+          ? '<span style="color:#5fd3c3">✓ API hidup</span> · database <b>' + esc(j.db) + '</b> · MySQL ' + esc(j.version)
+          : '<span style="color:#ff8a4d">✗ ' + esc(j.error) + '</span>';
+      } catch (e) { el("#hasilUji").innerHTML = '<span style="color:#ff8a4d">✗ api.php tidak terjangkau — pastikan dijalankan lewat XAMPP (http://localhost/…), bukan dibuka sebagai berkas.</span>'; }
+    };
+    el("#ujiBoot").onclick = async () => {
+      el("#hasilUji").textContent = "Menguji bootstrap…";
+      try {
+        const j = await http("bootstrap");
+        el("#hasilUji").innerHTML = j.ok
+          ? '<span style="color:#5fd3c3">✓ Data terbaca</span> · ' + j.petugas.length + ' petugas · ' + j.records.length + ' presensi · ' + j.jadwal.length + ' jadwal · ' + j.accounts.length + ' akun'
+          : '<span style="color:#ff8a4d">✗ ' + esc(j.error) + '</span>';
+      } catch (e) { el("#hasilUji").innerHTML = '<span style="color:#ff8a4d">✗ api.php tidak terjangkau.</span>'; }
+    };
+  }
+
+  function masalah(judul, isi) {
+    return '<div style="border-left:3px solid var(--brand-500);padding:2px 0 2px 14px"><b class="small">' + judul + '</b><p class="small muted" style="margin:4px 0 0">' + isi + '</p></div>';
+  }
+
+  (async () => {
+    try {
+      await init();
+      render();
+    } catch (err) {
+      console.error(err);
+      el("#app").innerHTML = '<div style="max-width:520px;margin:14vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Gagal memuat panduan</b><p>' + String((err && err.message) || err) + '</p></div>';
+    }
+  })();
+</script>
+</body>
+</html>

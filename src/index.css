@@ -1,0 +1,405 @@
+/* ============================================================
+   SIPELOK — pratinjau (React). CSS polos 100%, tanpa Tailwind.
+   Aplikasi yang diimplementasikan memakai folder public/standalone.
+   ============================================================ */
+
+:root {
+  --ink-950: #071a24;
+  --ink-900: #0c2431;
+  --ink-800: #123241;
+  --ink-700: #1b4257;
+  --ink-500: #4a7891;
+  --mist-50: #f7f4ec;
+  --mist-100: #efe9dd;
+  --mist-200: #e0d8c6;
+  --mist-300: #c3bba6;
+  --brand-300: #ffa470;
+  --brand-400: #ff8a4d;
+  --brand-500: #f2691f;
+  --lagoon-100: #d7f0ec;
+  --lagoon-600: #17857b;
+  --amber-500: #e2a33c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--mist-50);
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  background-color: var(--ink-900);
+  background-image:
+    radial-gradient(60rem 34rem at 108% -12%, rgba(242, 105, 31, 0.16), transparent 58%),
+    radial-gradient(44rem 30rem at -18% 112%, rgba(23, 133, 123, 0.24), transparent 60%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* tekstur derau */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 28px 22px 40px;
+}
+
+/* ---------- pita informasi ---------- */
+.tickerbar {
+  position: relative;
+  z-index: 1;
+  background: var(--brand-500);
+  color: var(--ink-950);
+  overflow: hidden;
+  border-bottom: 1px solid rgba(7, 26, 36, 0.35);
+}
+.ticker {
+  display: flex;
+  width: max-content;
+  animation: geser 30s linear infinite;
+}
+.ticker > span {
+  display: flex;
+  flex: none;
+}
+.ticker span {
+  padding: 6px 0;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ticker i {
+  font-style: normal;
+  margin: 0 14px;
+  opacity: 0.55;
+}
+@keyframes geser {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------- header ---------- */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--brand-500);
+  color: var(--ink-950);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 30px rgba(242, 105, 31, 0.35);
+  flex: none;
+}
+.word {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.word b {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.02em;
+}
+.word small {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mist-300);
+}
+.pill {
+  margin-left: auto;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mist-200);
+  border: 1px solid rgba(247, 244, 236, 0.18);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(247, 244, 236, 0.04);
+}
+@media (min-width: 640px) {
+  .pill {
+    display: inline-flex;
+  }
+}
+
+/* ---------- hero ---------- */
+.hero {
+  display: grid;
+  grid-template-columns: 1.35fr 0.85fr;
+  gap: 40px;
+  align-items: start;
+  margin-top: 64px;
+}
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    margin-top: 44px;
+  }
+}
+h1 {
+  margin: 0;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.4rem, 5.4vw, 3.9rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+h1 em {
+  font-style: normal;
+  color: var(--brand-400);
+}
+.lead {
+  color: var(--mist-200);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 46ch;
+  margin: 18px 0 0;
+}
+.lead strong {
+  color: var(--mist-50);
+}
+.subhead {
+  margin: 34px 0 12px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mist-300);
+}
+
+/* ---------- jendela loket ---------- */
+.lokets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.loket {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px 16px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(247, 244, 236, 0.14);
+  background: rgba(247, 244, 236, 0.04);
+  color: var(--mist-50);
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+.loket::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--plat, var(--brand-500));
+}
+.loket:hover {
+  transform: translateX(6px);
+  border-color: var(--plat, var(--brand-500));
+  background: rgba(247, 244, 236, 0.07);
+}
+.loket.a {
+  --plat: var(--brand-500);
+}
+.loket.b {
+  --plat: var(--lagoon-600);
+}
+.loket.c {
+  --plat: var(--amber-500);
+}
+.plat {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--plat, var(--brand-500));
+  color: var(--ink-950);
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+.txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.txt b {
+  font-size: 0.95rem;
+}
+.txt small {
+  color: var(--mist-300);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.panah {
+  margin-left: auto;
+  flex: none;
+  color: var(--mist-300);
+  transition: transform 0.22s ease, color 0.22s ease;
+}
+.loket:hover .panah {
+  transform: translateX(5px);
+  color: var(--brand-300);
+}
+.tag {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-950);
+  background: var(--amber-500);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* ---------- kartu jam ---------- */
+.jamcard {
+  position: sticky;
+  top: 26px;
+  background: rgba(7, 26, 36, 0.55);
+  border: 1px solid rgba(247, 244, 236, 0.14);
+  border-radius: 16px;
+  padding: 26px 26px 22px;
+  text-align: center;
+}
+.lbl {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mist-300);
+}
+.jam {
+  margin: 10px 0 0;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: clamp(3rem, 6vw, 4.2rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.jam .detik {
+  font-size: 0.42em;
+  color: var(--brand-400);
+  vertical-align: top;
+}
+.tgl {
+  margin: 10px 0 0;
+  color: var(--mist-200);
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+.shift {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+.shift span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--mist-300);
+  border: 1px solid rgba(247, 244, 236, 0.14);
+  border-radius: 10px;
+  padding: 9px 12px;
+  transition: all 0.3s ease;
+}
+.shift span.on {
+  color: var(--ink-950);
+  background: var(--lagoon-100);
+  border-color: var(--lagoon-100);
+  box-shadow: 0 0 0 4px rgba(215, 240, 236, 0.12);
+}
+
+/* ---------- footer ---------- */
+.foot {
+  margin-top: 70px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(247, 244, 236, 0.12);
+  font-size: 0.72rem;
+  color: var(--mist-300);
+}
+.foot b {
+  color: var(--mist-100);
+}
+
+/* ---------- gerak ---------- */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-400);
+  animation: denyut 1.8s ease-out infinite;
+  flex: none;
+}
+@keyframes denyut {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 138, 77, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 138, 77, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 138, 77, 0);
+  }
+}
+.rise {
+  animation: naik 0.6s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+@keyframes naik {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker,
+  .rise,
+  .dot {
+    animation: none;
+  }
+  .loket,
+  .panah {
+    transition: none;
+  }
+}

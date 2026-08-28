@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Presensi Petugas · SIPELOK</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/gaya.css" />
+<style>
+  .jenis { display: flex; gap: 8px; }
+  .jenis label { flex: 1; }
+  .jenis input { display: none; }
+  .jenis span { display: block; text-align: center; padding: 12px 8px; border-radius: 12px; border: 1.5px solid var(--mist-200); font-weight: 800; font-size: .85rem; cursor: pointer; transition: all .15s; background: #fff; }
+  .jenis input:checked + span.jm { background: var(--lagoon-100); border-color: var(--lagoon-600); color: var(--lagoon-700); }
+  .jenis input:checked + span.jp { background: var(--brand-100); border-color: var(--brand-600); color: var(--brand-700); }
+</style>
+</head>
+<body class="bg-board" style="color:var(--mist-50);min-height:100vh">
+<script>
+  window.onerror = function (msg, src, line) {
+    var t = document.getElementById("app");
+    if (t) t.innerHTML = '<div style="max-width:420px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p><p style="opacity:.7;margin:0">Muat ulang halaman, atau minta petugas loket menampilkan QR baru.</p></div>';
+  };
+</script>
+<div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--mist-300)"><span class="spin" style="font-size:1.6rem">◌</span>&nbsp; Memuat…</div></div>
+
+<script src="js/util.js"></script>
+<script>
+  const token = new URLSearchParams(location.search).get("token");
+  let sesi = null, foto = null, hasil = null;
+
+  function kerangka(isi) {
+    const now = new Date();
+    return '<div style="max-width:440px;margin:0 auto;padding:26px 18px 48px;min-height:100vh">' +
+      '<div class="row" style="justify-content:center;gap:10px">' +
+        '<span class="mk" style="width:38px;height:38px;border-radius:11px;background:var(--brand-500);color:#1d1206;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3.5"/><path d="M3 9.5h18M7 16.5v-3M11 16.5v-5M15 16.5v-2"/></svg></span>' +
+        '<span><b class="display" style="font-size:1.05rem">SIPELOK</b><br><span class="small" style="color:var(--mist-300)">BPS Kab. Konawe · <span class="tnum">' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</span></span></span>' +
+      '</div>' +
+      '<div class="card pad rise mt-2" style="color:var(--ink-900)">' + isi + '</div>' +
+      '<p class="small center mt-2" style="color:var(--mist-400)">Loket Pelayanan Terpadu · ' + now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + '</p>' +
+    '</div>';
+  }
+
+  function renderInvalid(pesan) {
+    el("#app").innerHTML = kerangka(
+      '<div class="center"><span style="font-size:2.6rem">⚠️</span>' +
+      '<h2 class="display" style="font-size:1.35rem;margin-top:6px">QR Tidak Valid</h2>' +
+      '<p class="small muted mt-1">' + pesan + '</p>' +
+      '<a class="btn primary block mt-2" href="index.html">Kembali ke Beranda</a>' +
+      '<p class="small muted mt-1">Minta petugas loket menampilkan QR terbaru di layar.</p></div>'
+    );
+  }
+
+  function renderForm() {
+    const terbuka = S.petugas.length === 0;
+    const jadwalHari = jadwalUntuk(new Date());
+    const jadwalSesi = jadwalHari.filter((j) => j.shift === sesi.shift);
+
+    el("#app").innerHTML = kerangka(
+      '<span class="eyebrow">Presensi Piket Loket</span>' +
+      '<h2 class="display" style="font-size:1.45rem;margin-top:6px">' + SHIFT[sesi.shift].label + ' · ' + SHIFT[sesi.shift].nama + '</h2>' +
+      '<p class="small muted">Sesi <b class="tnum">' + sesi.token + '</b> · ' + SHIFT[sesi.shift].waktu + ' WITA</p>' +
+
+      '<div class="mt-2"><label class="f">Nama Petugas</label>' +
+      '<select class="input" id="nama">' +
+        '<option value="">— pilih nama Anda —</option>' +
+        S.petugas.map((p) => '<option value="' + p.id + '">' + esc(p.nama) + '</option>').join("") +
+      '</select>' +
+      '<p id="jadwalHint" class="small mt-1" style="font-weight:700;color:var(--brand-700)"></p></div>' +
+
+      '<div class="mt-2"><label class="f">Jenis Presensi</label>' +
+      '<div class="jenis">' +
+        '<label><input type="radio" name="jenis" value="masuk" id="jm"><span class="jm">🟢 Masuk</span></label>' +
+        '<label><input type="radio" name="jenis" value="keluar" id="jp"><span class="jp">🟠 Pulang</span></label>' +
+      '</div>' +
+      '<p id="jenisHint" class="small muted mt-1"></p></div>' +
+
+      '<div class="mt-2" id="blokFoto"><label class="f">Foto Atribut <span id="wajibFoto" style="color:var(--ruby-700)">(wajib saat masuk)</span></label>' +
+      '<input type="file" accept="image/*" capture="user" class="input" id="foto" style="padding:9px">' +
+      '<img id="pratinjau" class="shot mt-1 hidden" alt="pratinjau foto">' +
+      '<div class="row mt-1 hidden" id="aksiFoto"><button class="btn light sm" id="ulangFoto">↻ Ambil Ulang</button><button class="btn light sm" id="hapusFoto">✕ Hapus</button></div></div>' +
+
+      '<p id="pesan" class="small" style="color:var(--ruby-700);margin-top:12px;min-height:1em"></p>' +
+      '<button class="btn primary block" id="kirim" style="padding:14px">Simpan Presensi</button>' +
+      (terbuka ? '<p class="small muted mt-1">Belum ada petugas terdaftar — hubungi admin.</p>' : '')
+    );
+
+    const namaSel = el("#nama");
+    const jenisHint = el("#jenisHint");
+
+    function statusJenis() {
+      const pid = namaSel.value;
+      if (!pid) return null;
+      return findOpenRecord(sesi.date, sesi.shift, pid) ? "keluar" : "masuk";
+    }
+    function jenisAktif() {
+      const jm = el("#jm"), jp = el("#jp");
+      if (jm.checked) return "masuk";
+      if (jp.checked) return "keluar";
+      return null;
+    }
+    function segarkan() {
+      const pid = namaSel.value;
+      // petunjuk jadwal piket
+      const hint = el("#jadwalHint");
+      if (pid) {
+        const j = jadwalHari.find((x) => x.petugasId === pid);
+        if (j) hint.textContent = "✓ Sesuai jadwal piket: " + SHIFT[j.shift].label + " · " + SHIFT[j.shift].nama + " (" + SHIFT[j.shift].waktu + " WITA)";
+        else if (jadwalSesi.length) hint.textContent = "Catatan: nama Anda tidak tercantum di jadwal shift ini.";
+        else hint.textContent = "";
+      } else hint.textContent = "";
+      // deteksi otomatis masuk/pulang
+      const st = statusJenis();
+      if (st && !jenisAktif()) {
+        el(st === "masuk" ? "#jm" : "#jp").checked = true;
+        jenisHint.textContent = st === "masuk"
+          ? "Terdeteksi: Anda belum presensi masuk pada shift ini."
+          : "Terdeteksi: Anda sudah presensi masuk — lanjutkan ke presensi pulang.";
+      }
+    }
+    namaSel.onchange = segarkan;
+
+    function jenisBerubah() {
+      const j = jenisAktif();
+      el("#wajibFoto").textContent = j === "masuk" ? "(wajib saat masuk)" : "(opsional saat pulang)";
+    }
+    el("#jm").onchange = jenisBerubah;
+    el("#jp").onchange = jenisBerubah;
+
+    el("#foto").onchange = (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      kecilkanFoto(f, (data) => {
+        foto = data;
+        if (data) { el("#pratinjau").src = data; el("#pratinjau").classList.remove("hidden"); el("#aksiFoto").classList.remove("hidden"); }
+      });
+    };
+    el("#ulangFoto").onclick = () => { el("#foto").value = ""; el("#foto").click(); };
+    el("#hapusFoto").onclick = () => {
+      foto = null; el("#foto").value = "";
+      el("#pratinjau").classList.add("hidden"); el("#aksiFoto").classList.add("hidden");
+    };
+
+    el("#kirim").onclick = () => {
+      const pid = namaSel.value;
+      const jenis = jenisAktif();
+      const pesan = el("#pesan");
+      if (!pid) { pesan.textContent = "Pilih nama Anda terlebih dahulu."; return; }
+      if (!jenis) { pesan.textContent = "Pilih jenis presensi (Masuk atau Pulang)."; return; }
+      const petugas = S.petugas.find((p) => p.id === pid);
+
+      if (jenis === "masuk") {
+        if (!foto) { pesan.textContent = "Foto atribut wajib saat presensi masuk."; return; }
+        if (findRecord2(pid)) { pesan.textContent = "Anda sudah memiliki catatan masuk pada shift ini."; return; }
+        const r = checkIn(petugas, sesi.shift, foto);
+        tampilkanHasil(r, "masuk");
+      } else {
+        const terbuka2 = findOpenRecord(sesi.date, sesi.shift, pid);
+        if (!terbuka2) { pesan.textContent = "Belum ada presensi masuk untuk dipulangkan. Pilih jenis Masuk."; return; }
+        const r = checkOut(terbuka2, foto);
+        tampilkanHasil(r, "keluar");
+      }
+    };
+
+    function findRecord2(pid) { return findRecord(sesi.date, sesi.shift, pid); }
+  }
+
+  function tampilkanHasil(r, jenis) {
+    const telat = menitTerlambat(r);
+    const d = new Date();
+    el("#app").innerHTML = kerangka(
+      '<div class="center">' +
+        '<span style="display:inline-flex;width:74px;height:74px;border-radius:50%;background:var(--lagoon-100);color:var(--lagoon-700);align-items:center;justify-content:center;font-size:2rem;border:3px solid var(--lagoon-500)">✓</span>' +
+        '<h2 class="display" style="font-size:1.45rem;margin-top:12px">Presensi ' + (jenis === "masuk" ? "Masuk" : "Pulang") + ' Tersimpan</h2>' +
+        '<p class="muted mt-1" style="font-weight:700">' + esc(r.nama) + '</p>' +
+        '<div class="row mt-2" style="justify-content:center;gap:8px;flex-wrap:wrap">' +
+          '<span class="badge ' + (r.shift === 1 ? "brand" : "lagoon") + '">' + SHIFT[r.shift].label + ' · ' + SHIFT[r.shift].nama + '</span>' +
+          '<span class="badge mist tnum">Masuk ' + fmtHM(r.masuk) + '</span>' +
+          (r.keluar ? '<span class="badge mist tnum">Pulang ' + fmtHM(r.keluar) + '</span>' : '') +
+          (r.keluar ? '<span class="badge lagoon tnum">Durasi ' + fmtDurasi(durasiMenit(r)) + '</span>' : '') +
+        '</div>' +
+        (jenis === "masuk" && telat > 0 ? '<p class="small mt-2" style="color:var(--ruby-700);font-weight:700">⚠ Terlambat ' + telat + ' menit dari jadwal shift.</p>' : '') +
+        (r.fotoMasuk ? '<img class="shot mt-2" src="' + r.fotoMasuk + '" alt="foto atribut">' : '') +
+        '<a class="btn light block mt-2" href="index.html">Selesai — Kembali</a>' +
+        '<p class="small muted mt-1">Dicatat pukul <b class="tnum">' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '</b> · ' + d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" }) + '</p>' +
+      '</div>'
+    );
+  }
+
+  function findRecord(date, shift, petugasId) {
+    return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId);
+  }
+
+  (async () => {
+    try {
+      await init();
+      if (!token) { renderInvalid("Tautan tidak memuat kode sesi. Pindai QR yang tampil di layar loket."); return; }
+      sesi = findSession(token.toUpperCase());
+      if (!sesi) { renderInvalid("Kode sesi <b>" + esc(token) + "</b> tidak dikenal. Mungkin QR sudah diperbarui — pindai ulang dari layar loket."); return; }
+      if (sesi.date !== todayStr()) { renderInvalid("QR ini untuk tanggal <b>" + fmtDateLong(sesi.date) + "</b> dan sudah kedaluwarsa. Minta QR hari ini di layar loket."); return; }
+      renderForm();
+      onChange(() => { /* data berubah di perangkat lain; biarkan formulir tetap */ });
+    } catch (err) {
+      console.error(err);
+      renderInvalid("Aplikasi gagal dimulai: " + String(err && err.message || err));
+    }
+  })();
+</script>
+</body>
+</html>

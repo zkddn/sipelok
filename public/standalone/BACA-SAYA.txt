@@ -1,0 +1,38 @@
+============================================================
+ SIPELOK — Presensi Piket Loket Pelayanan BPS Kab. Konawe
+ Murni HTML + CSS + JS + PHP + MySQL · TANPA npm
+============================================================
+
+INSTALASI SINGKAT (±10 menit)
+ 1. Pasang XAMPP, jalankan Apache + MySQL.
+ 2. Salin SELURUH folder ini ke:  C:\xampp\htdocs\sipelok
+ 3. Buka http://localhost/phpmyadmin -> Import ->
+    pilih file  database\sipelok.sql  -> Go.
+ 4. (Bila perlu) sesuaikan api\config.php.
+    Bawaan XAMPP: root, sandi kosong -> langsung cocok.
+ 5. Uji:  http://localhost/sipelok/api/api.php?action=ping
+    harus tampil "ok":true
+ 6. Buka  http://localhost/sipelok/
+
+AKUN ADMIN BAWAAN
+    nama pengguna : admin
+    kata sandi    : bpskonawe
+ (dibuat otomatis; segera ganti di Admin -> Akun & Data)
+
+AKSES DARI HP PETUGAS (satu Wi-Fi kantor)
+ - Cek IP komputer XAMPP (CMD -> ipconfig), mis. 192.168.1.10
+ - HP membuka:  http://192.168.1.10/sipelok/
+ - QR di layar loket otomatis memakai alamat tersebut.
+
+JIKA TIDAK BISA MASUK ADMIN
+ Jalankan di phpMyAdmin (tab SQL):
+     DELETE FROM akun;
+ lalu muat ulang halaman admin — akun bawaan dibuat ulang
+ otomatis oleh api.php.
+
+CATATAN
+ - Foto atribut disimpan sebagai berkas di api\uploads\
+   (folder harus dapat ditulis oleh Apache).
+ - Gambar QR memakai layanan qrserver.com (butuh internet
+   di PC loket). Tanpa internet, gunakan tautan di bawah QR.
+ - Panduan lengkap: buka panduan.html di browser.
