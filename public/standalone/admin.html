@@ -20,6 +20,7 @@
   .kalender .tgl .shift { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--mist-200); }
   .kalender .tgl .shift b { display: block; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-500); margin-bottom: 3px; }
   .kalender .tgl .shift .petugas { font-size: .68rem; color: var(--ink-700); line-height: 1.4; }
+  .kalender .tgl.kosong { background: var(--mist-100); opacity: .3; }
 </style>
 </head>
 <body class="bg-paper">
@@ -270,25 +271,53 @@
     }
 
     // kalender: 5 kolom (Senin-Jumat), baris per minggu
+    // Pastikan Senin selalu di kiri dengan padding hari kosong
     const minggu = [];
     let mingguIni = [];
+    
+    // Hitung padding awal (berapa hari kosong sebelum tanggal 1)
+    const tanggal1 = new Date(kalTahun, kalBulan - 1, 1);
+    const hariTanggal1 = tanggal1.getDay(); // 0=Minggu, 1=Senin, ...
+    const paddingAwal = hariTanggal1 === 0 ? 4 : hariTanggal1 - 1; // Senin=0, Selasa=1, ...
+    
+    // Tambahkan padding kosong di awal
+    for (let i = 0; i < paddingAwal; i++) {
+      mingguIni.push(null); // null = hari kosong
+    }
+    
+    // Tambahkan hari kerja
     hariBulan.forEach((h) => {
       if (h.hari === 0 || h.hari === 6) return; // skip Minggu & Sabtu
       mingguIni.push(h);
-      if (mingguIni.length === 5) { minggu.push(mingguIni); mingguIni = []; }
+      if (mingguIni.length === 5) { 
+        minggu.push(mingguIni); 
+        mingguIni = []; 
+      }
     });
-    if (mingguIni.length) minggu.push(mingguIni);
+    
+    // Tambahkan sisa hari di minggu terakhir
+    if (mingguIni.length) {
+      // Padding akhir agar selalu 5 kolom
+      while (mingguIni.length < 5) {
+        mingguIni.push(null);
+      }
+      minggu.push(mingguIni);
+    }
 
     const kalenderHtml = minggu.map((mg) =>
       '<div class="kalender">' +
       mg.map((h) => {
+        // Jika null, tampilkan hari kosong
+        if (!h) {
+          return '<div class="tgl kosong"></div>';
+        }
         const jd = jadwalUntukTanggal(h.tanggal);
         const s1 = jd.filter((j) => j.shift === 1).sort((a, b) => a.urutan - b.urutan);
         const s2 = jd.filter((j) => j.shift === 2).sort((a, b) => a.urutan - b.urutan);
+        // Hanya tampilkan nama petugas (tanpa role)
         const namaShift = (list) => list.map((j) => {
           const p = S.petugas.find((x) => x.id === j.petugasId);
-          const role = ROLE_MAP[j.urutan] || "—";
-          return p ? '<span style="color:var(--ink-500);font-size:.6rem">' + role + ':</span> ' + esc(p.nama.split(",")[0]) : "—";
+          return p ? esc(p.nama.split(",")[0]) : "—";
         }).join("<br>");
         return '<div class="tgl">' +
           '<div class="nomor">' + h.tanggalObj.getDate() + '</div>' +
@@ -332,14 +361,30 @@
     if (isAdmin) {
       el("#jrotasi").onclick = () => {
         if (confirm("Susun rotasi otomatis untuk " + namaBulan + "? Jadwal lama bulan ini diganti.")) {
+          // Filter prefix yang benar: YYYY-MM
+          const prefix = kalTahun + "-" + pad(kalBulan);
+          console.log("Rotasi otomatis untuk bulan:", prefix);
+          console.log("Jumlah jadwal sebelum filter:", S.jadwal.length);
+          
           // hapus jadwal bulan ini
-          S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(kalTahun + "-" + pad(kalBulan)));
+          const jadwalLama = S.jadwal.filter((j) => j.tanggal.startsWith(prefix));
+          console.log("Jumlah jadwal yang akan dihapus:", jadwalLama.length);
+          
+          S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(prefix));
+          console.log("Jumlah jadwal setelah filter:", S.jadwal.length);
+          
           // generate baru
           const baru = generateJadwalBulan(kalTahun, kalBulan);
+          console.log("Jumlah jadwal baru yang di-generate:", baru.length);
+          
           S.jadwal = S.jadwal.concat(baru);
+          console.log("Jumlah jadwal total setelah concat:", S.jadwal.length);
+          
           persist("jadwal", S.jadwal);
           emit();
           renderJadwal();
+          
+          alert("✓ Rotasi otomatis berhasil untuk " + namaBulan + " (" + baru.length + " slot jadwal)");
         }
       };
       el("#jimport").onclick = () => {

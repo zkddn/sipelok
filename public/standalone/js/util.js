@@ -250,24 +250,46 @@ function jadwalUntukSekarang() {
 }
 function generateJadwalBulan(tahun, bulan) {
   const p = S.petugas, n = p.length, out = [];
-  if (n === 0) return out;
+  if (n === 0) {
+    console.warn("generateJadwalBulan: Tidak ada petugas");
+    return out;
+  }
+  
+  console.log("generateJadwalBulan: tahun=", tahun, "bulan=", bulan, "petugas=", n);
+  
   // semua hari kerja di bulan tsb
   const hariKerja = [];
   const d = new Date(tahun, bulan - 1, 1);
   while (d.getMonth() === bulan - 1) {
-    if (HARI_KERJA.indexOf(d.getDay()) >= 0) hariKerja.push(todayStr(d));
+    if (HARI_KERJA.indexOf(d.getDay()) >= 0) {
+      const tgl = todayStr(d);
+      hariKerja.push(tgl);
+    }
     d.setDate(d.getDate() + 1);
   }
+  
+  console.log("generateJadwalBulan: hariKerja.length=", hariKerja.length);
+  console.log("generateJadwalBulan: hariKerja=", hariKerja);
+  
   // isi 4 slot per shift per hari, bergiliran
   let idx = 0;
   hariKerja.forEach((tgl) => {
     [1, 2].forEach((sh) => {
       for (let ur = 1; ur <= 4; ur++) {
-        out.push({ id: uid(), tanggal: tgl, shift: sh, urutan: ur, petugasId: p[idx % n].id });
+        out.push({ 
+          id: uid(), 
+          tanggal: tgl, 
+          shift: sh, 
+          urutan: ur, 
+          petugasId: p[idx % n].id 
+        });
         idx++;
       }
     });
   });
+  
+  console.log("generateJadwalBulan: total jadwal yang di-generate=", out.length);
+  
   return out;
 }
 
