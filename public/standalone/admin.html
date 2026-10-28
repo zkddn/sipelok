@@ -21,6 +21,8 @@
   .kalender .tgl .shift b { display: block; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-500); margin-bottom: 3px; }
   .kalender .tgl .shift .petugas { font-size: .68rem; color: var(--ink-700); line-height: 1.4; }
   .kalender .tgl.kosong { background: var(--mist-100); opacity: .3; }
+  .kalender .tgl.clickable { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+  .kalender .tgl.clickable:hover { border-color: var(--brand-500); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(242, 105, 31, 0.2); }
 </style>
 </head>
 <body class="bg-paper">
@@ -319,7 +321,7 @@
           const p = S.petugas.find((x) => x.id === j.petugasId);
           return p ? esc(p.nama.split(",")[0]) : "—";
         }).join("<br>");
-        return '<div class="tgl">' +
+        return '<div class="tgl clickable" data-tanggal="' + h.tanggal + '" onclick="editJadwalTanggal(\'' + h.tanggal + '\')" title="Klik untuk edit jadwal">' +
           '<div class="nomor">' + h.tanggalObj.getDate() + '</div>' +
           '<div class="small muted">' + HARI[h.hari] + '</div>' +
           '<div class="shift"><b>Shift 1 · Pagi</b><div class="petugas">' + (s1.length ? namaShift(s1) : '<span class="muted">kosong</span>') + '</div></div>' +
@@ -358,33 +360,277 @@
       if (kalBulan > 12) { kalBulan = 1; kalTahun++; }
       renderJadwal();
     };
+    
+    // Fungsi edit jadwal per tanggal
+    window.editJadwalTanggal = function(tanggal) {
+      if (!isAdmin) {
+        alert("Hanya admin yang dapat mengedit jadwal");
+        return;
+      }
+      
+      console.log("Edit jadwal untuk tanggal:", tanggal);
+      
+      const jd = jadwalUntukTanggal(tanggal);
+      const tglObj = new Date(tanggal + "T12:00:00");
+      const tglFormatted = tglObj.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      
+      // Buat dropdown options
+      const options = S.petugas.map(p => 
+        '<option value="' + p.id + '">' + esc(p.nama) + '</option>'
+      ).join("");
+      
+      // Ambil petugas yang sudah ada untuk setiap slot
+      const getPetugas = (shift, urutan) => {
+        const j = jd.find(x => x.shift === shift && x.urutan === urutan);
+        return j ? j.petugasId : "";
+      };
+      
+      // Buat form
+      const form = `
+        <div style="max-width: 600px; margin: 0 auto;">
+          <h3 style="margin-bottom: 20px; color: var(--brand-500);">Edit Jadwal: ${tglFormatted}</h3>
+          
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: var(--ink-700);">Shift 1 · Pagi (08.00-12.00)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Frontliner</label>
+                <select id="s1u1" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Konsultasi</label>
+                <select id="s1u2" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Rekomendasi</label>
+                <select id="s1u3" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Perpustakaan</label>
+                <select id="s1u4" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: var(--ink-700);">Shift 2 · Siang (12.00-15.30)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Frontliner</label>
+                <select id="s2u1" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Konsultasi</label>
+                <select id="s2u2" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Rekomendasi</label>
+                <select id="s2u3" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Perpustakaan</label>
+                <select id="s2u4" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-light" onclick="closeEditModal()">Batal</button>
+            <button class="btn btn-primary" onclick="saveJadwalTanggal('${tanggal}')">Simpan</button>
+          </div>
+        </div>
+      `;
+      
+      // Tampilkan modal
+      showModal(form);
+      
+      // Set nilai dropdown
+      setTimeout(() => {
+        document.getElementById("s1u1").value = getPetugas(1, 1);
+        document.getElementById("s1u2").value = getPetugas(1, 2);
+        document.getElementById("s1u3").value = getPetugas(1, 3);
+        document.getElementById("s1u4").value = getPetugas(1, 4);
+        document.getElementById("s2u1").value = getPetugas(2, 1);
+        document.getElementById("s2u2").value = getPetugas(2, 2);
+        document.getElementById("s2u3").value = getPetugas(2, 3);
+        document.getElementById("s2u4").value = getPetugas(2, 4);
+      }, 100);
+    };
+    
+    // Fungsi simpan jadwal per tanggal
+    window.saveJadwalTanggal = function(tanggal) {
+      console.log("Saving jadwal for tanggal:", tanggal);
+      
+      // Hapus jadwal lama untuk tanggal ini
+      S.jadwal = S.jadwal.filter(j => j.tanggal !== tanggal);
+      
+      // Tambahkan jadwal baru
+      const slots = [
+        { shift: 1, urutan: 1, value: document.getElementById("s1u1").value },
+        { shift: 1, urutan: 2, value: document.getElementById("s1u2").value },
+        { shift: 1, urutan: 3, value: document.getElementById("s1u3").value },
+        { shift: 1, urutan: 4, value: document.getElementById("s1u4").value },
+        { shift: 2, urutan: 1, value: document.getElementById("s2u1").value },
+        { shift: 2, urutan: 2, value: document.getElementById("s2u2").value },
+        { shift: 2, urutan: 3, value: document.getElementById("s2u3").value },
+        { shift: 2, urutan: 4, value: document.getElementById("s2u4").value },
+      ];
+      
+      let count = 0;
+      slots.forEach(slot => {
+        if (slot.value) {
+          S.jadwal.push({
+            id: uid(),
+            tanggal: tanggal,
+            shift: slot.shift,
+            urutan: slot.urutan,
+            petugasId: slot.value
+          });
+          count++;
+        }
+      });
+      
+      console.log("Saved", count, "slots for tanggal:", tanggal);
+      
+      // Simpan ke database
+      persist("jadwal", S.jadwal);
+      
+      // Tutup modal
+      closeEditModal();
+      
+      // Refresh tampilan
+      renderJadwal();
+      
+      alert("✓ Jadwal berhasil disimpan untuk " + new Date(tanggal + "T12:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" }));
+    };
+    
+    // Fungsi tutup modal
+    window.closeEditModal = function() {
+      const modal = document.getElementById("editModal");
+      if (modal) {
+        modal.remove();
+      }
+    };
+    
+    // Fungsi tampilkan modal
+    function showModal(content) {
+      // Hapus modal lama jika ada
+      const oldModal = document.getElementById("editModal");
+      if (oldModal) {
+        oldModal.remove();
+      }
+      
+      // Buat modal baru
+      const modal = document.createElement("div");
+      modal.id = "editModal";
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      `;
+      
+      const modalContent = document.createElement("div");
+      modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      `;
+      modalContent.innerHTML = content;
+      
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      // Tutup modal jika klik di luar
+      modal.onclick = function(e) {
+        if (e.target === modal) {
+          closeEditModal();
+        }
+      };
+    }
     if (isAdmin) {
-      el("#jrotasi").onclick = () => {
+      el("#jrotasi").onclick = async () => {
         if (confirm("Susun rotasi otomatis untuk " + namaBulan + "? Jadwal lama bulan ini diganti.")) {
+          console.log("=== ROTASI OTOMATIS START ===");
+          
           // Filter prefix yang benar: YYYY-MM
           const prefix = kalTahun + "-" + pad(kalBulan);
-          console.log("Rotasi otomatis untuk bulan:", prefix);
+          console.log("Bulan target:", prefix);
           console.log("Jumlah jadwal sebelum filter:", S.jadwal.length);
           
           // hapus jadwal bulan ini
           const jadwalLama = S.jadwal.filter((j) => j.tanggal.startsWith(prefix));
-          console.log("Jumlah jadwal yang akan dihapus:", jadwalLama.length);
+          console.log("Jumlah jadwal bulan ini yang akan dihapus:", jadwalLama.length);
           
           S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(prefix));
           console.log("Jumlah jadwal setelah filter:", S.jadwal.length);
           
           // generate baru
+          console.log("Generating jadwal baru...");
           const baru = generateJadwalBulan(kalTahun, kalBulan);
           console.log("Jumlah jadwal baru yang di-generate:", baru.length);
+          
+          if (baru.length === 0) {
+            alert("✗ Error: Tidak ada jadwal yang di-generate. Periksa console untuk detail.");
+            return;
+          }
+          
+          // Verifikasi jadwal yang di-generate
+          const tanggalUnik = [...new Set(baru.map(j => j.tanggal))];
+          console.log("Tanggal unik yang di-generate:", tanggalUnik.length);
+          console.log("Tanggal pertama:", tanggalUnik[0]);
+          console.log("Tanggal terakhir:", tanggalUnik[tanggalUnik.length - 1]);
           
           S.jadwal = S.jadwal.concat(baru);
           console.log("Jumlah jadwal total setelah concat:", S.jadwal.length);
           
+          // Simpan ke database
+          console.log("Saving to database...");
           persist("jadwal", S.jadwal);
           emit();
           renderJadwal();
           
-          alert("✓ Rotasi otomatis berhasil untuk " + namaBulan + " (" + baru.length + " slot jadwal)");
+          console.log("=== ROTASI OTOMATIS END ===");
+          
+          alert("✓ Rotasi otomatis berhasil untuk " + namaBulan + "\n\n" +
+                "Total slot: " + baru.length + "\n" +
+                "Hari kerja: " + tanggalUnik.length + " hari\n" +
+                "Periode: " + tanggalUnik[0] + " s/d " + tanggalUnik[tanggalUnik.length - 1] + "\n\n" +
+                "Periksa console browser (F12) untuk detail logging.");
         }
       };
       el("#jimport").onclick = () => {

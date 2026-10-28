@@ -163,17 +163,46 @@ try {
           }
           error_log("SIPELOK: Successfully saved $saved records");
         } elseif ($table === 'jadwal') {
+          error_log("SIPELOK: Processing " . count($rows) . " jadwal rows");
+          
           $up = $db->prepare('UPDATE jadwal SET petugas_id=? WHERE tanggal=? AND shift=? AND urutan=?');
           $in = $db->prepare('INSERT INTO jadwal (id, tanggal, shift, urutan, petugas_id) VALUES (?,?,?,?,?)');
-          foreach ($rows as $r) {
-            $id = (string) ($r['id'] ?? '');
-            $tgl = $r['tanggal'] ?? null;
-            $sh = (int) ($r['shift'] ?? 1);
-            $ur = (int) ($r['urutan'] ?? 1);
-            $pid = $r['petugasId'] ?? '';
-            $up->execute([$pid, $tgl, $sh, $ur]);
-            if ($up->rowCount() === 0) $in->execute([$id, $tgl, $sh, $ur, $pid]);
+          
+          $updated = 0;
+          $inserted = 0;
+          $errors = 0;
+          
+          foreach ($rows as $index => $r) {
+            try {
+              $id = (string) ($r['id'] ?? '');
+              $tgl = $r['tanggal'] ?? null;
+              $sh = (int) ($r['shift'] ?? 1);
+              $ur = (int) ($r['urutan'] ?? 1);
+              $pid = $r['petugasId'] ?? '';
+              
+              if (empty($id) || empty($tgl) || empty($pid)) {
+                error_log("SIPELOK: Skipping invalid jadwal row $index: id=$id, tgl=$tgl, pid=$pid");
+                $errors++;
+                continue;
+              }
+              
+              $up->execute([$pid, $tgl, $sh, $ur]);
+              if ($up->rowCount() === 0) {
+                $in->execute([$id, $tgl, $sh, $ur, $pid]);
+                $inserted++;
+                if ($inserted <= 5 || $inserted % 50 === 0) {
+                  error_log("SIPELOK: Inserted jadwal $id for $tgl shift $sh urutan $ur");
+                }
+              } else {
+                $updated++;
+              }
+            } catch (Exception $e) {
+              error_log("SIPELOK: Error processing jadwal row $index: " . $e->getMessage());
+              $errors++;
+            }
           }
+          
+          error_log("SIPELOK: Jadwal processing complete - Updated: $updated, Inserted: $inserted, Errors: $errors");
         } elseif ($table === 'accounts') {
           $db->exec('DELETE FROM akun');
           $in = $db->prepare('INSERT INTO akun (username, nama, peran, hash, salt, dibuat) VALUES (?,?,?,?,?,?)');

@@ -174,20 +174,77 @@ function startSync(intervalMs) {
 
 /* ---------------- simpan (dua mode) ---------------- */
 function persist(table, rows) {
+  console.log("=== persist START ===");
+  console.log("Table:", table, "Rows:", rows.length, "Mode:", MODE);
+  
   lsWrite(LS[table], rows);
+  console.log("Data saved to localStorage");
+  
   if (MODE === "db") {
-    http("save", { table: table, body: rows })
-      .then(res => {
-        if (!res || !res.ok) {
-          console.error("Gagal simpan ke database:", res);
-          alert("Peringatan: Data tersimpan lokal tapi gagal ke server. Mode: " + MODE);
-        }
-      })
-      .catch(err => {
-        console.error("Error simpan ke database:", err);
-        alert("Error koneksi ke server. Data tersimpan lokal saja.");
+    console.log("Sending to database...");
+    
+    // Untuk jadwal, kirim dalam chunks jika terlalu besar
+    const CHUNK_SIZE = 100;
+    if (table === "jadwal" && rows.length > CHUNK_SIZE) {
+      console.log("Splitting into chunks of", CHUNK_SIZE);
+      const chunks = [];
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        chunks.push(rows.slice(i, i + CHUNK_SIZE));
+      }
+      console.log("Total chunks:", chunks.length);
+      
+      let completed = 0;
+      let failed = 0;
+      
+      chunks.forEach((chunk, index) => {
+        console.log("Sending chunk", index + 1, "/", chunks.length, "(", chunk.length, "rows)");
+        http("save", { table: table, body: chunk })
+          .then(res => {
+            if (!res || !res.ok) {
+              console.error("Chunk", index + 1, "failed:", res);
+              failed++;
+            } else {
+              console.log("Chunk", index + 1, "success");
+            }
+            completed++;
+            if (completed === chunks.length) {
+              if (failed > 0) {
+                alert("Peringatan: " + failed + " dari " + chunks.length + " chunk gagal disimpan ke database. Data tersimpan lokal.");
+              } else {
+                console.log("All chunks saved successfully");
+              }
+            }
+          })
+          .catch(err => {
+            console.error("Chunk", index + 1, "error:", err);
+            failed++;
+            completed++;
+            if (completed === chunks.length) {
+              alert("Error koneksi ke server. " + failed + " chunk gagal. Data tersimpan lokal saja.");
+            }
+          });
       });
+    } else {
+      // Kirim semua sekaligus
+      http("save", { table: table, body: rows })
+        .then(res => {
+          if (!res || !res.ok) {
+            console.error("Gagal simpan ke database:", res);
+            alert("Peringatan: Data tersimpan lokal tapi gagal ke server. Error: " + (res?.error || "Unknown"));
+          } else {
+            console.log("✓ Data berhasil disimpan ke database. Rows:", res.rows);
+          }
+        })
+        .catch(err => {
+          console.error("Error simpan ke database:", err);
+          alert("Error koneksi ke server: " + err.message + ". Data tersimpan lokal saja.");
+        });
+    }
+  } else {
+    console.log("Mode is local, skipping database save");
   }
+  
+  console.log("=== persist END ===");
 }
 function persistDelete(table, id, rows) {
   lsWrite(LS[table], rows);
@@ -255,21 +312,32 @@ function generateJadwalBulan(tahun, bulan) {
     return out;
   }
   
-  console.log("generateJadwalBulan: tahun=", tahun, "bulan=", bulan, "petugas=", n);
+  console.log("=== generateJadwalBulan START ===");
+  console.log("Tahun:", tahun, "Bulan:", bulan, "Jumlah petugas:", n);
   
   // semua hari kerja di bulan tsb
   const hariKerja = [];
   const d = new Date(tahun, bulan - 1, 1);
-  while (d.getMonth() === bulan - 1) {
+  const targetMonth = bulan - 1;
+  
+  console.log("Target month:", targetMonth, "Start date:", d.toISOString());
+  
+  let dayCount = 0;
+  while (d.getMonth() === targetMonth) {
+    dayCount++;
     if (HARI_KERJA.indexOf(d.getDay()) >= 0) {
       const tgl = todayStr(d);
       hariKerja.push(tgl);
+      console.log("  Day", dayCount, ":", d.toISOString().split('T')[0], "(", HARI[d.getDay()], ") - WORK DAY");
+    } else {
+      console.log("  Day", dayCount, ":", d.toISOString().split('T')[0], "(", HARI[d.getDay()], ") - WEEKEND");
     }
     d.setDate(d.getDate() + 1);
   }
   
-  console.log("generateJadwalBulan: hariKerja.length=", hariKerja.length);
-  console.log("generateJadwalBulan: hariKerja=", hariKerja);
+  console.log("Total days in month:", dayCount);
+  console.log("Work days:", hariKerja.length);
+  console.log("Work dates:", hariKerja);
   
   // isi 4 slot per shift per hari, bergiliran
   let idx = 0;
@@ -288,7 +356,9 @@ function generateJadwalBulan(tahun, bulan) {
     });
   });
   
-  console.log("generateJadwalBulan: total jadwal yang di-generate=", out.length);
+  console.log("Total schedules generated:", out.length);
+  console.log("Expected:", hariKerja.length, "days × 2 shifts × 4 slots =", hariKerja.length * 2 * 4);
+  console.log("=== generateJadwalBulan END ===");
   
   return out;
 }
