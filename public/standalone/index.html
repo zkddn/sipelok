@@ -28,7 +28,7 @@
     const now = new Date();
     const shift = shiftForTime(now);
     lastShift = shift;
-    const jd = jadwalUntuk(now);
+    const jd = jadwalUntukSekarang();
     const t = todayStr();
 
     const barisPiket = [1, 2].map((sh) => {
@@ -72,8 +72,8 @@
             '</div>' +
 
             '<div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">' +
-              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Loket — PC Front Office</b><small>Buka di komputer loket: menampilkan daftar petugas piket hari ini & status presensi.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
-              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="presensi.html"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Presensi HP</b><small>Buka di HP petugas untuk mencatat jam masuk/pulang + foto atribut. Shift terdeteksi otomatis dari jam.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Utama — PC Front Office</b><small>Buka di komputer loket: menampilkan daftar petugas piket hari ini & status presensi.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="presensi.html"><span class="plat">B</span><span class="grow"><b>Presensi — HP Petugas</b><small>Buka di HP petugas untuk mencatat jam masuk/pulang + foto atribut. Shift terdeteksi otomatis dari jam.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
               '<a class="card jnd j-c hoverable rise" style="animation-delay:.14s" href="admin.html"><span class="plat">C</span><span class="grow"><b>Admin & Rekap</b><small>Rekap presensi, jadwal piket mingguan, kelola petugas & akun.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
             '</div>' +
           '</section>' +
