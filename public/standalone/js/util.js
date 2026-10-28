@@ -122,6 +122,14 @@ const SHIFT = {
 const HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 const HARI_KERJA = [1, 2, 3, 4, 5]; // Senin–Jumat
 
+/* ---------------- role petugas per shift ---------------- */
+const ROLE_MAP = {
+  1: "Frontliner",
+  2: "Konsultasi",
+  3: "Rekomendasi",
+  4: "Perpustakaan"
+};
+
 function pad(n) { return String(n).padStart(2, "0"); }
 function todayStr(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
 function shiftForTime(d) { d = d || new Date(); return d.getHours() < 12 ? 1 : 2; }

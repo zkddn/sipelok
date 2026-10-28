@@ -107,8 +107,8 @@
       if (pid && sh) {
         const j = jd.find((x) => x.petugasId === pid && x.shift === sh);
         if (j) {
-          const urutan = j.urutan;
-          hint.textContent = "✓ Anda dijadwalkan di slot #" + urutan + " shift ini.";
+          const role = ROLE_MAP[j.urutan];
+          hint.textContent = "✓ Anda dijadwalkan sebagai " + role + " di shift ini.";
         } else {
           hint.textContent = "Catatan: nama Anda tidak tercantum di jadwal shift ini.";
         }

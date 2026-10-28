@@ -50,8 +50,9 @@
         let st = '<span class="badge ruby">Belum absen</span>';
         if (rec && rec.keluar) st = '<span class="badge mist">Selesai ' + fmtHM(rec.masuk) + '–' + fmtHM(rec.keluar) + '</span>';
         else if (rec) st = '<span class="badge lagoon"><span class="dot live-dot"></span> Bertugas ' + fmtHM(rec.masuk) + '</span>';
+        const role = ROLE_MAP[j.urutan] || "—";
         return '<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)">' +
-          '<div class="row" style="gap:10px"><span class="ini" style="width:36px;height:36px;font-size:.9rem">' + inisial(p ? p.nama : "?") + '</span><b>' + esc(p ? p.nama : "—") + '</b></div>' + st + '</div>';
+          '<div class="row" style="gap:10px"><span class="ini" style="width:36px;height:36px;font-size:.9rem">' + inisial(p ? p.nama : "?") + '</span><div><b>' + esc(p ? p.nama : "—") + '</b><br><span class="small" style="color:var(--mist-400)">' + role + '</span></div></div>' + st + '</div>';
       }).join("");
 
       return '<div class="card dark pad" style="background:' + (aktif ? "rgba(242,105,31,.08)" : "rgba(255,255,255,.05)") + ';border-color:' + (aktif ? "var(--brand-500)" : "rgba(255,255,255,.12)") + '">' +
@@ -94,10 +95,7 @@
           renderKolom(2, shift2) +
         '</div>' +
 
-        '<div class="card dark pad mt-2" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)">' +
-          '<span class="eyebrow on-dark">Petugas Dapat Presensi Lewat</span>' +
-          '<p class="small mt-1" style="color:var(--mist-300)">Buka <b>scan.html</b> di HP petugas (atau pindai tautan yang disediakan admin). Tidak perlu QR — langsung pilih nama & shift, lalu foto atribut.</p>' +
-        '</div>' +
+
       '</main>';
 
     el("#modeBadge").innerHTML = modeBadgeHtml();

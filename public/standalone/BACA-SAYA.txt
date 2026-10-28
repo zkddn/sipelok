@@ -21,8 +21,8 @@ AKUN ADMIN BAWAAN
 
 AKSES DARI HP PETUGAS (satu Wi-Fi kantor)
  - Cek IP komputer XAMPP (CMD -> ipconfig), mis. 192.168.1.10
- - HP membuka:  http://192.168.1.10/sipelok/
- - QR di layar loket otomatis memakai alamat tersebut.
+ - HP membuka:  http://192.168.1.10/sipelok/presensi.html
+ - Pilih nama, shift, lalu foto atribut. Shift terdeteksi otomatis.
 
 JIKA TIDAK BISA MASUK ADMIN
  Jalankan di phpMyAdmin (tab SQL):
@@ -33,6 +33,6 @@ JIKA TIDAK BISA MASUK ADMIN
 CATATAN
  - Foto atribut disimpan sebagai berkas di api\uploads\
    (folder harus dapat ditulis oleh Apache).
- - Gambar QR memakai layanan qrserver.com (butuh internet
-   di PC loket). Tanpa internet, gunakan tautan di bawah QR.
+ - Petugas buka presensi.html di HP, pilih nama & shift,
+   lalu foto atribut.
  - Panduan lengkap: buka panduan.html di browser.

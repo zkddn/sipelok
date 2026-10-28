@@ -287,8 +287,9 @@
         const s2 = jd.filter((j) => j.shift === 2).sort((a, b) => a.urutan - b.urutan);
         const namaShift = (list) => list.map((j) => {
           const p = S.petugas.find((x) => x.id === j.petugasId);
-          return p ? esc(p.nama.split(",")[0]) : "—";
-        }).join(", ");
+          const role = ROLE_MAP[j.urutan] || "—";
+          return p ? '<span style="color:var(--ink-500);font-size:.6rem">' + role + ':</span> ' + esc(p.nama.split(",")[0]) : "—";
+        }).join("<br>");
         return '<div class="tgl">' +
           '<div class="nomor">' + h.tanggalObj.getDate() + '</div>' +
           '<div class="small muted">' + HARI[h.hari] + '</div>' +
@@ -311,6 +312,8 @@
             '<button class="btn light sm" id="prevBulan">← Bulan Lalu</button>' +
             '<button class="btn light sm" id="nextBulan">Bulan Depan →</button>' +
             (isAdmin ? '<button class="btn primary sm" id="jrotasi">↻ Rotasi Otomatis</button>' : '') +
+            '<button class="btn light sm" id="jexport">⬇ Export</button>' +
+            (isAdmin ? '<button class="btn light sm" id="jimport">⬇ Import</button>' : '') +
           '</div>' +
         '</div>' +
         '<div class="mt-2">' + kalenderHtml + '</div>' +
@@ -339,7 +342,63 @@
           renderJadwal();
         }
       };
+      el("#jimport").onclick = () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".csv";
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const lines = ev.target.result.split(/\r?\n/).filter((l) => l.trim());
+              let count = 0;
+              // hapus jadwal bulan ini dulu
+              S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(kalTahun + "-" + pad(kalBulan)));
+              lines.forEach((line, i) => {
+                if (i === 0 && line.toLowerCase().indexOf("tanggal") >= 0) return; // skip header
+                const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
+                // format: tanggal,shift,urutan,petugas_id
+                if (parts[0] && parts[1] && parts[2] && parts[3]) {
+                  S.jadwal.push({
+                    id: uid(),
+                    tanggal: parts[0],
+                    shift: Number(parts[1]),
+                    urutan: Number(parts[2]),
+                    petugasId: parts[3]
+                  });
+                  count++;
+                }
+              });
+              persist("jadwal", S.jadwal);
+              emit();
+              alert("✓ Berhasil import " + count + " jadwal untuk " + namaBulan + ".");
+              renderJadwal();
+            } catch (err) {
+              alert("✗ Gagal import: " + err.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      };
     }
+    el("#jexport").onclick = () => {
+      const jd = S.jadwal.filter((j) => j.tanggal.startsWith(kalTahun + "-" + pad(kalBulan)));
+      const csv = ["tanggal,shift,urutan,petugas_id,nama_petugas"];
+      jd.forEach((j) => {
+        const p = S.petugas.find((x) => x.id === j.petugasId);
+        csv.push([j.tanggal, j.shift, j.urutan, j.petugasId, p ? p.nama : ""].join(","));
+      });
+      const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "jadwal-" + kalTahun + "-" + pad(kalBulan) + ".csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
   }
 
   /* ============ PETUGAS ============ */
@@ -350,8 +409,11 @@
         '<p class="small muted mt-1">Minimal 8 petugas disarankan agar rotasi 4 slot per shift berjalan merata.</p>' +
         '<div class="row mt-2" style="flex-wrap:wrap;gap:8px"><input class="input grow" id="pnama" placeholder="Nama lengkap & gelar" style="min-width:220px">' +
         '<input class="input inline" id="pnip" placeholder="NIP (opsional)" style="width:200px">' +
-        '<button class="btn primary" id="ptambah">+ Tambah</button></div>' +
+        '<button class="btn primary" id="ptambah">+ Tambah</button>' +
+        '<button class="btn light" id="pimport">⬇ Import CSV</button></div>' +
+        '<input type="file" id="pfile" accept=".csv" class="hidden">' +
         '<p id="ppesan" class="small" style="color:var(--ruby-700);margin-top:8px;min-height:1em"></p>' +
+        '<p class="small muted mt-1">Format CSV: <code>nama,nip</code> (satu petugas per baris)</p>' +
         '<div class="mt-2" style="display:flex;flex-direction:column;gap:8px">' +
         S.petugas.map((p) => {
           const n = S.jadwal.filter((j) => j.petugasId === p.id).length;
@@ -367,6 +429,33 @@
       persist("petugas", S.petugas); emit(); renderPetugas();
     };
     el("#pnama").onkeydown = (e) => { if (e.key === "Enter") el("#ptambah").click(); };
+    el("#pimport").onclick = () => el("#pfile").click();
+    el("#pfile").onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const lines = ev.target.result.split(/\r?\n/).filter((l) => l.trim());
+          let count = 0;
+          lines.forEach((line, i) => {
+            if (i === 0 && line.toLowerCase().indexOf("nama") >= 0) return; // skip header
+            const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
+            if (parts[0]) {
+              S.petugas.push({ id: uid(), nama: parts[0], nip: parts[1] || null });
+              count++;
+            }
+          });
+          persist("petugas", S.petugas);
+          emit();
+          el("#ppesan").innerHTML = '<span style="color:var(--lagoon-700)">✓ Berhasil import ' + count + ' petugas.</span>';
+          setTimeout(renderPetugas, 500);
+        } catch (err) {
+          el("#ppesan").innerHTML = '<span style="color:var(--ruby-700)">✗ Gagal import: ' + esc(err.message) + '</span>';
+        }
+      };
+      reader.readAsText(file);
+    };
     document.querySelectorAll("[data-hapus]").forEach((b) => b.onclick = () => {
       const p = S.petugas.find((x) => x.id === b.dataset.hapus);
       if (p && confirm("Hapus " + p.nama + " beserta slot jadwalnya? Riwayat presensi tetap tersimpan.")) {
