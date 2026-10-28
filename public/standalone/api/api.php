@@ -165,8 +165,12 @@ try {
         } elseif ($table === 'jadwal') {
           error_log("SIPELOK: Processing " . count($rows) . " jadwal rows");
           
-          $up = $db->prepare('UPDATE jadwal SET petugas_id=? WHERE tanggal=? AND shift=? AND urutan=?');
-          $in = $db->prepare('INSERT INTO jadwal (id, tanggal, shift, urutan, petugas_id) VALUES (?,?,?,?,?)');
+          // Gunakan INSERT ... ON DUPLICATE KEY UPDATE untuk menghindari duplicate entry error
+          $upsert = $db->prepare('
+            INSERT INTO jadwal (id, tanggal, shift, urutan, petugas_id) 
+            VALUES (?,?,?,?,?) 
+            ON DUPLICATE KEY UPDATE petugas_id=VALUES(petugas_id)
+          ');
           
           $updated = 0;
           $inserted = 0;
@@ -186,15 +190,17 @@ try {
                 continue;
               }
               
-              $up->execute([$pid, $tgl, $sh, $ur]);
-              if ($up->rowCount() === 0) {
-                $in->execute([$id, $tgl, $sh, $ur, $pid]);
+              $upsert->execute([$id, $tgl, $sh, $ur, $pid]);
+              
+              // rowCount() returns 1 for insert, 2 for update (MySQL specific)
+              $rowCount = $upsert->rowCount();
+              if ($rowCount === 2) {
+                $updated++;
+              } else {
                 $inserted++;
                 if ($inserted <= 5 || $inserted % 50 === 0) {
                   error_log("SIPELOK: Inserted jadwal $id for $tgl shift $sh urutan $ur");
                 }
-              } else {
-                $updated++;
               }
             } catch (Exception $e) {
               error_log("SIPELOK: Error processing jadwal row $index: " . $e->getMessage());

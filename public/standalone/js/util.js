@@ -20,7 +20,16 @@ let lastSig = "";
 const listeners = [];
 
 /* ---------------- dasar ---------------- */
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
+let uidCounter = 0;
+function uid() { 
+  // Gunakan crypto.randomUUID() jika tersedia, fallback ke kombinasi timestamp + counter + random
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  }
+  // Fallback: timestamp + counter + random untuk memastikan unik
+  uidCounter++;
+  return Date.now().toString(36) + '-' + uidCounter.toString(36) + '-' + Math.random().toString(36).slice(2, 11);
+}
 function onChange(fn) { listeners.push(fn); }
 function emit() { listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); }
 
@@ -339,13 +348,47 @@ function generateJadwalBulan(tahun, bulan) {
   console.log("Work days:", hariKerja.length);
   console.log("Work dates:", hariKerja);
   
+  // Validasi: pastikan tidak ada duplikat (tanggal, shift, urutan)
+  const existingKeys = new Set();
+  S.jadwal.forEach(j => {
+    if (j.tanggal.startsWith(tahun + "-" + String(bulan).padStart(2, "0"))) {
+      existingKeys.add(`${j.tanggal}-${j.shift}-${j.urutan}`);
+    }
+  });
+  console.log("Existing jadwal keys for this month:", existingKeys.size);
+  
   // isi 4 slot per shift per hari, bergiliran
   let idx = 0;
+  const generatedIds = new Set(); // Track ID yang sudah di-generate
+  
   hariKerja.forEach((tgl) => {
     [1, 2].forEach((sh) => {
       for (let ur = 1; ur <= 4; ur++) {
+        const key = `${tgl}-${sh}-${ur}`;
+        
+        // Skip jika sudah ada di database (untuk update manual)
+        if (existingKeys.has(key)) {
+          console.log("  Skipping existing:", key);
+          idx++;
+          continue;
+        }
+        
+        // Generate ID yang pasti unik
+        let newId;
+        let attempts = 0;
+        do {
+          newId = uid();
+          attempts++;
+          if (attempts > 10) {
+            console.error("Failed to generate unique ID after 10 attempts!");
+            break;
+          }
+        } while (generatedIds.has(newId));
+        
+        generatedIds.add(newId);
+        
         out.push({ 
-          id: uid(), 
+          id: newId, 
           tanggal: tgl, 
           shift: sh, 
           urutan: ur, 
@@ -358,6 +401,17 @@ function generateJadwalBulan(tahun, bulan) {
   
   console.log("Total schedules generated:", out.length);
   console.log("Expected:", hariKerja.length, "days × 2 shifts × 4 slots =", hariKerja.length * 2 * 4);
+  console.log("Unique IDs generated:", generatedIds.size);
+  
+  // Validasi akhir: pastikan tidak ada ID duplikat
+  const idArray = Array.from(generatedIds);
+  const uniqueIds = new Set(idArray);
+  if (idArray.length !== uniqueIds.size) {
+    console.error("DUPLICATE IDS DETECTED!", idArray.length - uniqueIds.size, "duplicates");
+  } else {
+    console.log("✓ All IDs are unique");
+  }
+  
   console.log("=== generateJadwalBulan END ===");
   
   return out;

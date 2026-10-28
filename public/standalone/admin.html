@@ -345,6 +345,7 @@
             (isAdmin ? '<button class="btn primary sm" id="jrotasi">↻ Rotasi Otomatis</button>' : '') +
             '<button class="btn light sm" id="jexport">⬇ Export</button>' +
             (isAdmin ? '<button class="btn light sm" id="jimport">⬇ Import</button>' : '') +
+            (isAdmin ? '<button class="btn danger sm" id="jclean">🧹 Bersihkan Duplikat</button>' : '') +
           '</div>' +
         '</div>' +
         '<div class="mt-2">' + kalenderHtml + '</div>' +
@@ -592,6 +593,30 @@
           console.log("Bulan target:", prefix);
           console.log("Jumlah jadwal sebelum filter:", S.jadwal.length);
           
+          // Validasi: cek duplikat ID di jadwal saat ini
+          const idSet = new Set();
+          const duplicateIds = [];
+          S.jadwal.forEach(j => {
+            if (idSet.has(j.id)) {
+              duplicateIds.push(j.id);
+            }
+            idSet.add(j.id);
+          });
+          
+          if (duplicateIds.length > 0) {
+            console.warn("Found duplicate IDs in current jadwal:", duplicateIds.length);
+            console.warn("Duplicate IDs:", duplicateIds.slice(0, 10));
+            
+            // Regenerate ID yang duplikat
+            S.jadwal.forEach(j => {
+              if (duplicateIds.includes(j.id)) {
+                const oldId = j.id;
+                j.id = uid();
+                console.log("Regenerated ID:", oldId, "->", j.id);
+              }
+            });
+          }
+          
           // hapus jadwal bulan ini
           const jadwalLama = S.jadwal.filter((j) => j.tanggal.startsWith(prefix));
           console.log("Jumlah jadwal bulan ini yang akan dihapus:", jadwalLama.length);
@@ -609,6 +634,22 @@
             return;
           }
           
+          // Validasi: pastikan tidak ada ID duplikat di jadwal baru
+          const baruIdSet = new Set();
+          const baruDuplicateIds = [];
+          baru.forEach(j => {
+            if (baruIdSet.has(j.id)) {
+              baruDuplicateIds.push(j.id);
+            }
+            baruIdSet.add(j.id);
+          });
+          
+          if (baruDuplicateIds.length > 0) {
+            console.error("ERROR: Duplicate IDs found in generated jadwal!", baruDuplicateIds);
+            alert("✗ Error: Ada ID duplikat di jadwal yang di-generate. Periksa console.");
+            return;
+          }
+          
           // Verifikasi jadwal yang di-generate
           const tanggalUnik = [...new Set(baru.map(j => j.tanggal))];
           console.log("Tanggal unik yang di-generate:", tanggalUnik.length);
@@ -617,6 +658,22 @@
           
           S.jadwal = S.jadwal.concat(baru);
           console.log("Jumlah jadwal total setelah concat:", S.jadwal.length);
+          
+          // Validasi akhir: cek duplikat (tanggal, shift, urutan)
+          const keySet = new Set();
+          const duplicateKeys = [];
+          S.jadwal.forEach(j => {
+            const key = `${j.tanggal}-${j.shift}-${j.urutan}`;
+            if (keySet.has(key)) {
+              duplicateKeys.push(key);
+            }
+            keySet.add(key);
+          });
+          
+          if (duplicateKeys.length > 0) {
+            console.warn("Found duplicate keys in jadwal:", duplicateKeys.length);
+            console.warn("Duplicate keys:", duplicateKeys.slice(0, 10));
+          }
           
           // Simpan ke database
           console.log("Saving to database...");
@@ -689,6 +746,45 @@
       a.download = "jadwal-" + kalTahun + "-" + pad(kalBulan) + ".csv";
       a.click();
       URL.revokeObjectURL(url);
+    };
+    
+    // Tombol bersihkan duplikat
+    el("#jclean").onclick = async () => {
+      if (!confirm("Ini akan menghapus semua jadwal duplikat dari database. Lanjutkan?")) {
+        return;
+      }
+      
+      console.log("=== BERSIHKAN DUPLIKAT START ===");
+      
+      try {
+        // Panggil API untuk membersihkan duplikat
+        const response = await fetch('api/cleanup_jadwal.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          console.log("Cleanup result:", result);
+          alert(`✓ Berhasil membersihkan duplikat\n\n` +
+                `Total baris: ${result.total}\n` +
+                `Duplikat dihapus: ${result.deleted}\n` +
+                `Sisa: ${result.remaining}`);
+          
+          // Reload data dari database
+          await init();
+          renderJadwal();
+        } else {
+          console.error("Cleanup failed:", result);
+          alert("✗ Gagal membersihkan duplikat: " + (result.error || "Unknown error"));
+        }
+      } catch (err) {
+        console.error("Cleanup error:", err);
+        alert("✗ Error: " + err.message);
+      }
+      
+      console.log("=== BERSIHKAN DUPLIKAT END ===");
     };
   }
 
