@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Debug · SIPELOK</title>
+<link rel="stylesheet" href="css/gaya.css" />
+<style>
+  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+  .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+  .status.ok { background: #d4edda; color: #155724; }
+  .status.error { background: #f8d7da; color: #721c24; }
+  .status.info { background: #d1ecf1; color: #0c5460; }
+  pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+  button { padding: 8px 16px; margin: 5px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; }
+  button:hover { background: #e9ecef; }
+  .btn-primary { background: #007bff; color: white; border-color: #007bff; }
+  .btn-primary:hover { background: #0056b3; }
+  .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background: #c82333; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+  th { background: #f8f9fa; font-weight: bold; }
+</style>
+</head>
+<body>
+<div style="max-width: 1200px; margin: 0 auto;">
+  <h1>🔧 SIPELOK Debug Panel</h1>
+  <p>Halaman ini membantu Anda memeriksa apakah data tersimpan dengan benar.</p>
+
+  <div class="card">
+    <h2>1. Status Mode Penyimpanan</h2>
+    <div id="modeStatus"></div>
+    <button onclick="checkMode()" class="btn-primary">Periksa Mode</button>
+  </div>
+
+  <div class="card">
+    <h2>2. Data di LocalStorage</h2>
+    <div id="localStorageStatus"></div>
+    <button onclick="showLocalStorage()">Tampilkan Data LocalStorage</button>
+    <button onclick="clearLocalStorage()" class="btn-danger">Hapus LocalStorage</button>
+    <div id="localStorageData"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Data di Database (MySQL)</h2>
+    <div id="databaseStatus"></div>
+    <button onclick="showDatabase()" class="btn-primary">Tampilkan Data Database</button>
+    <div id="databaseData"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Test Presensi</h2>
+    <p>Tambahkan presensi test untuk memastikan sistem bekerja:</p>
+    <button onclick="testPresensi()" class="btn-primary">Tambah Presensi Test</button>
+    <div id="testResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>5. Console Log</h2>
+    <p>Buka Developer Console (F12) untuk melihat log detail.</p>
+    <button onclick="clearConsole()">Bersihkan Console</button>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script>
+  async function checkMode() {
+    const status = document.getElementById('modeStatus');
+    status.innerHTML = '<p>Memeriksa...</p>';
+    
+    const mode = await init();
+    
+    if (mode === 'db') {
+      status.innerHTML = '<div class="status ok">✓ Mode: MySQL (Database)<br>Data tersimpan di database MySQL dan tersinkronisasi antar perangkat.</div>';
+    } else {
+      status.innerHTML = '<div class="status info">⚠ Mode: LocalStorage (Demo)<br>Data hanya tersimpan di browser ini. Jika browser di-clear atau dibuka dari perangkat lain, data tidak akan muncul.</div>';
+    }
+  }
+
+  function showLocalStorage() {
+    const status = document.getElementById('localStorageStatus');
+    const data = document.getElementById('localStorageData');
+    
+    const records = JSON.parse(localStorage.getItem('sipelok.records') || '[]');
+    const petugas = JSON.parse(localStorage.getItem('sipelok.petugas') || '[]');
+    const jadwal = JSON.parse(localStorage.getItem('sipelok.jadwal') || '[]');
+    
+    status.innerHTML = `<div class="status ok">✓ LocalStorage berisi:<br>
+      • ${records.length} records presensi<br>
+      • ${petugas.length} petugas<br>
+      • ${jadwal.length} jadwal</div>`;
+    
+    data.innerHTML = '<h3>Records Presensi (5 terakhir):</h3>' +
+      '<pre>' + JSON.stringify(records.slice(0, 5), null, 2) + '</pre>';
+  }
+
+  function clearLocalStorage() {
+    if (confirm('Hapus semua data di LocalStorage?')) {
+      localStorage.clear();
+      document.getElementById('localStorageStatus').innerHTML = '<div class="status ok">✓ LocalStorage telah dihapus</div>';
+      document.getElementById('localStorageData').innerHTML = '';
+    }
+  }
+
+  async function showDatabase() {
+    const status = document.getElementById('databaseStatus');
+    const data = document.getElementById('databaseData');
+    
+    status.innerHTML = '<p>Memeriksa database...</p>';
+    
+    try {
+      const result = await http('bootstrap');
+      
+      if (result && result.ok) {
+        status.innerHTML = `<div class="status ok">✓ Database berisi:<br>
+          • ${result.records.length} records presensi<br>
+          • ${result.petugas.length} petugas<br>
+          • ${result.jadwal.length} jadwal</div>`;
+        
+        data.innerHTML = '<h3>Records Presensi di Database (5 terakhir):</h3>' +
+          '<pre>' + JSON.stringify(result.records.slice(0, 5), null, 2) + '</pre>';
+      } else {
+        status.innerHTML = '<div class="status error">✗ Gagal mengambil data dari database<br>' + (result?.error || 'Unknown error') + '</div>';
+      }
+    } catch (e) {
+      status.innerHTML = '<div class="status error">✗ Error: ' + e.message + '<br>Pastikan server PHP dan MySQL berjalan.</div>';
+    }
+  }
+
+  async function testPresensi() {
+    const result = document.getElementById('testResult');
+    result.innerHTML = '<p>Menambahkan presensi test...</p>';
+    
+    try {
+      await init();
+      
+      if (S.petugas.length === 0) {
+        result.innerHTML = '<div class="status error">✗ Tidak ada petugas. Tambahkan petugas dulu di menu Admin.</div>';
+        return;
+      }
+      
+      const petugas = S.petugas[0];
+      const shift = shiftForTime();
+      
+      result.innerHTML = '<p>Menambahkan presensi untuk: ' + petugas.nama + ' (Shift ' + shift + ')...</p>';
+      
+      const record = checkIn(petugas, shift, null);
+      
+      result.innerHTML = '<div class="status ok">✓ Presensi test berhasil ditambahkan!<br>' +
+        'ID: ' + record.id + '<br>' +
+        'Nama: ' + record.nama + '<br>' +
+        'Shift: ' + record.shift + '<br>' +
+        'Masuk: ' + record.masuk + '</div>' +
+        '<p><a href="admin.html">Lihat di Admin →</a></p>';
+      
+    } catch (e) {
+      result.innerHTML = '<div class="status error">✗ Error: ' + e.message + '</div>';
+    }
+  }
+
+  function clearConsole() {
+    console.clear();
+    alert('Console telah dibersihkan');
+  }
+
+  // Auto-check on load
+  window.onload = async () => {
+    await checkMode();
+    showLocalStorage();
+  };
+</script>
+</body>
+</html>

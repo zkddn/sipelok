@@ -47,21 +47,43 @@ async function http(action, opts) {
     init.headers["Content-Type"] = "application/json";
     init.headers["X-Sipelok-Key"] = API_KEY;
     init.body = JSON.stringify(opts.body);
+    console.log("HTTP POST:", action, "Table:", opts.table, "Records:", opts.body.length);
+  } else {
+    console.log("HTTP GET:", action);
   }
-  const r = await fetch(url, init);
-  return r.json();
+  try {
+    const r = await fetch(url, init);
+    const data = await r.json();
+    if (!data.ok) {
+      console.error("HTTP Error:", action, data);
+    }
+    return data;
+  } catch (e) {
+    console.error("HTTP Fetch Error:", action, e);
+    throw e;
+  }
 }
 
 /* ---------------- deteksi mode & bootstrap ---------------- */
 async function detectMode() {
   try {
+    console.log("Mendeteksi mode penyimpanan...");
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 2500);
+    const t = setTimeout(() => ctrl.abort(), 5000); // Timeout 5 detik
     const r = await fetch(API + "?action=ping", { signal: ctrl.signal });
     clearTimeout(t);
     const j = await r.json();
-    if (j && j.ok) { MODE = "db"; return true; }
-  } catch (e) { /* tidak ada server */ }
+    if (j && j.ok) {
+      console.log("✓ Server PHP terdeteksi. Mode: MySQL");
+      MODE = "db";
+      return true;
+    } else {
+      console.log("✗ Server PHP tidak merespons dengan benar. Mode: LocalStorage");
+    }
+  } catch (e) {
+    console.log("✗ Tidak dapat terhubung ke server PHP. Mode: LocalStorage");
+    console.log("Error:", e.message);
+  }
   MODE = "local";
   return false;
 }
@@ -70,22 +92,30 @@ function getMode() { return MODE; }
 async function init() {
   try {
     const isDb = await detectMode();
+    console.log("Mode penyimpanan:", MODE === "db" ? "MySQL (database)" : "LocalStorage (demo)");
+    
     if (isDb) {
+      console.log("Mengambil data dari database...");
       const j = await http("bootstrap");
       if (j && j.ok) {
         S.petugas = j.petugas || []; S.records = j.records || [];
         S.jadwal = j.jadwal || []; S.accounts = j.accounts || [];
+        console.log("Data berhasil dimuat:", S.records.length, "records");
         lsWrite(LS.petugas, S.petugas); lsWrite(LS.records, S.records);
         lsWrite(LS.jadwal, S.jadwal); lsWrite(LS.accounts, S.accounts);
         try { const s = await http("sig"); lastSig = (s && s.sig) || ""; } catch (e) { /* abaikan */ }
+      } else {
+        console.error("Gagal mengambil data dari database:", j);
       }
     } else {
+      console.log("Mengambil data dari localStorage...");
       S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
       S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []);
+      console.log("Data dimuat dari localStorage:", S.records.length, "records");
       if (!localStorage.getItem(LS.seeded)) seedDemo();
     }
   } catch (e) {
-    console.error("init:", e);
+    console.error("init error:", e);
     S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
     S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []);
   }
@@ -96,22 +126,78 @@ async function init() {
 
 function startSync(intervalMs) {
   if (MODE !== "db") return;
+  let syncing = false;
   setInterval(async () => {
+    if (syncing) return; // Jangan sync jika sedang sync
     try {
+      syncing = true;
       const s = await http("sig");
-      if (s && s.sig && s.sig !== lastSig) { lastSig = s.sig; await init(); }
-    } catch (e) { /* server sibuk */ }
+      if (s && s.sig && s.sig !== lastSig) {
+        lastSig = s.sig;
+        // Hanya reload data, jangan overwrite jika ada perubahan lokal
+        const j = await http("bootstrap");
+        if (j && j.ok) {
+          // Merge: hanya update jika record dari server lebih baru
+          const localIds = new Set(S.records.map(r => r.id));
+          const serverRecords = j.records || [];
+          
+          // Tambahkan record baru dari server yang belum ada di lokal
+          serverRecords.forEach(sr => {
+            if (!localIds.has(sr.id)) {
+              S.records.push(sr);
+            }
+          });
+          
+          // Update record yang sudah ada jika versi server lebih baru
+          S.records = S.records.map(lr => {
+            const sr = serverRecords.find(s => s.id === lr.id);
+            if (sr) {
+              // Gunakan yang lebih baru berdasarkan timestamp
+              const localTime = new Date(lr.masuk || lr.keluar || 0).getTime();
+              const serverTime = new Date(sr.masuk || sr.keluar || 0).getTime();
+              return serverTime > localTime ? sr : lr;
+            }
+            return lr;
+          });
+          
+          lsWrite(LS.records, S.records);
+          emit();
+        }
+      }
+    } catch (e) {
+      console.error("Sync error:", e);
+    } finally {
+      syncing = false;
+    }
   }, intervalMs || 3500);
 }
 
 /* ---------------- simpan (dua mode) ---------------- */
 function persist(table, rows) {
   lsWrite(LS[table], rows);
-  if (MODE === "db") http("save", { table: table, body: rows }).catch(() => {});
+  if (MODE === "db") {
+    http("save", { table: table, body: rows })
+      .then(res => {
+        if (!res || !res.ok) {
+          console.error("Gagal simpan ke database:", res);
+          alert("Peringatan: Data tersimpan lokal tapi gagal ke server. Mode: " + MODE);
+        }
+      })
+      .catch(err => {
+        console.error("Error simpan ke database:", err);
+        alert("Error koneksi ke server. Data tersimpan lokal saja.");
+      });
+  }
 }
 function persistDelete(table, id, rows) {
   lsWrite(LS[table], rows);
-  if (MODE === "db") http("delete", { table: table, id: id }).catch(() => {});
+  if (MODE === "db") {
+    http("delete", { table: table, id: id })
+      .then(res => {
+        if (!res || !res.ok) console.error("Gagal hapus dari database:", res);
+      })
+      .catch(err => console.error("Error hapus dari database:", err));
+  }
 }
 
 /* ---------------- shift & waktu ---------------- */
@@ -194,13 +280,56 @@ function findRecord(date, shift, petugasId) {
 }
 function checkIn(petugas, shift, fotoMasuk) {
   const r = { id: uid(), date: todayStr(), shift: shift, petugasId: petugas.id, nama: petugas.nama, masuk: new Date().toISOString(), keluar: null, fotoMasuk: fotoMasuk || null, fotoKeluar: null };
-  S.records.unshift(r); persist("records", S.records); emit();
+  S.records.unshift(r);
+  
+  // Simpan ke localStorage dulu
+  lsWrite(LS.records, S.records);
+  
+  // Simpan ke database jika mode db
+  if (MODE === "db") {
+    http("save", { table: "records", body: S.records })
+      .then(res => {
+        if (!res || !res.ok) {
+          console.error("Gagal simpan presensi ke database:", res);
+          alert("Peringatan: Presensi tersimpan lokal tapi gagal ke server. Periksa koneksi database.");
+        } else {
+          console.log("Presensi berhasil disimpan ke database. ID:", r.id);
+        }
+      })
+      .catch(err => {
+        console.error("Error simpan presensi ke database:", err);
+        alert("Error koneksi ke server. Presensi tersimpan lokal saja.");
+      });
+  }
+  
+  emit();
   return r;
 }
 function checkOut(rec, fotoKeluar) {
   rec.keluar = new Date().toISOString();
   if (fotoKeluar) rec.fotoKeluar = fotoKeluar;
-  persist("records", S.records); emit();
+  
+  // Simpan ke localStorage dulu
+  lsWrite(LS.records, S.records);
+  
+  // Simpan ke database jika mode db
+  if (MODE === "db") {
+    http("save", { table: "records", body: S.records })
+      .then(res => {
+        if (!res || !res.ok) {
+          console.error("Gagal simpan presensi pulang ke database:", res);
+          alert("Peringatan: Presensi pulang tersimpan lokal tapi gagal ke server.");
+        } else {
+          console.log("Presensi pulang berhasil disimpan. ID:", rec.id);
+        }
+      })
+      .catch(err => {
+        console.error("Error simpan presensi pulang ke database:", err);
+        alert("Error koneksi ke server. Presensi pulang tersimpan lokal saja.");
+      });
+  }
+  
+  emit();
   return rec;
 }
 function deleteRecords(ids) {

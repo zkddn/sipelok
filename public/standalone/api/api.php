@@ -117,57 +117,79 @@ try {
 
     case 'save': {
       $table = (string) ($_GET['table'] ?? '');
-      $rows  = json_decode(file_get_contents('php://input') ?: '[]', true);
-      if (!is_array($rows)) fail('Isi permintaan tidak valid');
-      if (count($rows) > 8000) fail('Terlalu banyak baris');
-      $db->beginTransaction();
-
-      if ($table === 'petugas') {
-        $up = $db->prepare('UPDATE petugas SET nama=?, nip=? WHERE id=?');
-        $in = $db->prepare('INSERT INTO petugas (id, nama, nip) VALUES (?,?,?)');
-        foreach ($rows as $r) {
-          $up->execute([$r['nama'] ?? '', $r['nip'] ?? null, $r['id'] ?? '']);
-          if ($up->rowCount() === 0) $in->execute([$r['id'] ?? '', $r['nama'] ?? '', $r['nip'] ?? null]);
-        }
-      } elseif ($table === 'records') {
-        $up = $db->prepare('UPDATE presensi SET tanggal=?, shift=?, petugas_id=?, nama=?, masuk=?, keluar=?, foto_masuk=?, foto_keluar=? WHERE id=?');
-        $in = $db->prepare('INSERT INTO presensi (id, tanggal, shift, petugas_id, nama, masuk, keluar, foto_masuk, foto_keluar) VALUES (?,?,?,?,?,?,?,?,?)');
-        foreach ($rows as $r) {
-          $id = (string) ($r['id'] ?? '');
-          if ($id === '') continue;
-          $v = [
-            $r['date'] ?? null, (int) ($r['shift'] ?? 1), $r['petugasId'] ?? '', $r['nama'] ?? '',
-            to_dt($r['masuk'] ?? null), to_dt($r['keluar'] ?? null),
-            simpan_foto($r['fotoMasuk'] ?? null, $id, 'masuk'),
-            simpan_foto($r['fotoKeluar'] ?? null, $id, 'keluar'),
-          ];
-          $up->execute(array_merge($v, [$id]));
-          if ($up->rowCount() === 0) $in->execute(array_merge([$id], $v));
-        }
-      } elseif ($table === 'jadwal') {
-        // UPSERT per (tanggal, shift, urutan)
-        $up = $db->prepare('UPDATE jadwal SET petugas_id=? WHERE tanggal=? AND shift=? AND urutan=?');
-        $in = $db->prepare('INSERT INTO jadwal (id, tanggal, shift, urutan, petugas_id) VALUES (?,?,?,?,?)');
-        foreach ($rows as $r) {
-          $id = (string) ($r['id'] ?? '');
-          $tgl = $r['tanggal'] ?? null;
-          $sh = (int) ($r['shift'] ?? 1);
-          $ur = (int) ($r['urutan'] ?? 1);
-          $pid = $r['petugasId'] ?? '';
-          $up->execute([$pid, $tgl, $sh, $ur]);
-          if ($up->rowCount() === 0) $in->execute([$id, $tgl, $sh, $ur, $pid]);
-        }
-      } elseif ($table === 'accounts') {
-        $db->exec('DELETE FROM akun');
-        $in = $db->prepare('INSERT INTO akun (username, nama, peran, hash, salt, dibuat) VALUES (?,?,?,?,?,?)');
-        foreach ($rows as $r) $in->execute([$r['username'] ?? '', $r['nama'] ?? '', $r['role'] ?? 'viewer', $r['hash'] ?? '', $r['salt'] ?? null, to_dt($r['dibuat'] ?? null)]);
-      } else {
-        $db->rollBack();
-        fail('Tabel tidak dikenal: ' . $table);
+      $raw_input = file_get_contents('php://input');
+      $rows  = json_decode($raw_input ?: '[]', true);
+      
+      if (!is_array($rows)) {
+        error_log("SIPELOK: Invalid JSON for table $table: " . substr($raw_input, 0, 200));
+        fail('Isi permintaan tidak valid: ' . json_last_error_msg());
       }
+      
+      if (count($rows) > 8000) fail('Terlalu banyak baris');
+      
+      error_log("SIPELOK: Saving " . count($rows) . " rows to table: $table");
+      
+      try {
+        $db->beginTransaction();
 
-      $db->commit();
-      out(['ok' => true, 'rows' => count($rows)]);
+        if ($table === 'petugas') {
+          $up = $db->prepare('UPDATE petugas SET nama=?, nip=? WHERE id=?');
+          $in = $db->prepare('INSERT INTO petugas (id, nama, nip) VALUES (?,?,?)');
+          foreach ($rows as $r) {
+            $up->execute([$r['nama'] ?? '', $r['nip'] ?? null, $r['id'] ?? '']);
+            if ($up->rowCount() === 0) $in->execute([$r['id'] ?? '', $r['nama'] ?? '', $r['nip'] ?? null]);
+          }
+        } elseif ($table === 'records') {
+          $up = $db->prepare('UPDATE presensi SET tanggal=?, shift=?, petugas_id=?, nama=?, masuk=?, keluar=?, foto_masuk=?, foto_keluar=? WHERE id=?');
+          $in = $db->prepare('INSERT INTO presensi (id, tanggal, shift, petugas_id, nama, masuk, keluar, foto_masuk, foto_keluar) VALUES (?,?,?,?,?,?,?,?,?)');
+          $saved = 0;
+          foreach ($rows as $r) {
+            $id = (string) ($r['id'] ?? '');
+            if ($id === '') continue;
+            $v = [
+              $r['date'] ?? null, (int) ($r['shift'] ?? 1), $r['petugasId'] ?? '', $r['nama'] ?? '',
+              to_dt($r['masuk'] ?? null), to_dt($r['keluar'] ?? null),
+              simpan_foto($r['fotoMasuk'] ?? null, $id, 'masuk'),
+              simpan_foto($r['fotoKeluar'] ?? null, $id, 'keluar'),
+            ];
+            $up->execute(array_merge($v, [$id]));
+            if ($up->rowCount() === 0) {
+              $in->execute(array_merge([$id], $v));
+              error_log("SIPELOK: Inserted new record ID: $id");
+            } else {
+              error_log("SIPELOK: Updated existing record ID: $id");
+            }
+            $saved++;
+          }
+          error_log("SIPELOK: Successfully saved $saved records");
+        } elseif ($table === 'jadwal') {
+          $up = $db->prepare('UPDATE jadwal SET petugas_id=? WHERE tanggal=? AND shift=? AND urutan=?');
+          $in = $db->prepare('INSERT INTO jadwal (id, tanggal, shift, urutan, petugas_id) VALUES (?,?,?,?,?)');
+          foreach ($rows as $r) {
+            $id = (string) ($r['id'] ?? '');
+            $tgl = $r['tanggal'] ?? null;
+            $sh = (int) ($r['shift'] ?? 1);
+            $ur = (int) ($r['urutan'] ?? 1);
+            $pid = $r['petugasId'] ?? '';
+            $up->execute([$pid, $tgl, $sh, $ur]);
+            if ($up->rowCount() === 0) $in->execute([$id, $tgl, $sh, $ur, $pid]);
+          }
+        } elseif ($table === 'accounts') {
+          $db->exec('DELETE FROM akun');
+          $in = $db->prepare('INSERT INTO akun (username, nama, peran, hash, salt, dibuat) VALUES (?,?,?,?,?,?)');
+          foreach ($rows as $r) $in->execute([$r['username'] ?? '', $r['nama'] ?? '', $r['role'] ?? 'viewer', $r['hash'] ?? '', $r['salt'] ?? null, to_dt($r['dibuat'] ?? null)]);
+        } else {
+          $db->rollBack();
+          fail('Tabel tidak dikenal: ' . $table);
+        }
+
+        $db->commit();
+        out(['ok' => true, 'rows' => count($rows)]);
+      } catch (Exception $e) {
+        $db->rollBack();
+        error_log("SIPELOK: Database error: " . $e->getMessage());
+        fail('Database error: ' . $e->getMessage());
+      }
       break;
     }
 
