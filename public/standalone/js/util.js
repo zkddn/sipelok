@@ -1,23 +1,21 @@
 /* ============================================================
    SIPELOK — util.js  (dipakai semua halaman, tanpa npm)
    Dua mode:  db  -> PHP+MySQL   |   local -> localStorage (demo)
-   Login SINKRON dengan satu format hash yang pasti (djb2+salt),
-   sama persis dengan api.php — mustahil tidak cocok.
    ============================================================ */
 "use strict";
 
 const API = "api/api.php";
 const API_KEY = "sipelok-konawe-2024";
-const ADMIN_SALT = "sipelokadmin"; // sama dengan api.php
+const ADMIN_SALT = "sipelokadmin";
 
 const LS = {
   petugas: "sipelok.petugas", records: "sipelok.records", jadwal: "sipelok.jadwal",
-  accounts: "sipelok.accounts", sessions: "sipelok.sessions", seeded: "sipelok.seeded",
+  accounts: "sipelok.accounts", seeded: "sipelok.seeded",
 };
 const AUTH_KEY = "sipelok.auth";
 
-const S = { petugas: [], records: [], jadwal: [], accounts: [], sessions: [] };
-let MODE = "local";              // "db" | "local"
+const S = { petugas: [], records: [], jadwal: [], accounts: [] };
+let MODE = "local";
 let lastSig = "";
 const listeners = [];
 
@@ -26,7 +24,6 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function onChange(fn) { listeners.push(fn); }
 function emit() { listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); }
 
-/* djb2 -> base36. WAJIB identik dengan fungsi djb2() di api.php */
 function djb2(str) {
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
@@ -77,35 +74,33 @@ async function init() {
       const j = await http("bootstrap");
       if (j && j.ok) {
         S.petugas = j.petugas || []; S.records = j.records || [];
-        S.jadwal = j.jadwal || []; S.accounts = j.accounts || []; S.sessions = j.sessions || [];
-        // cermin lokal agar tetap terbaca saat offline sesaat
+        S.jadwal = j.jadwal || []; S.accounts = j.accounts || [];
         lsWrite(LS.petugas, S.petugas); lsWrite(LS.records, S.records);
-        lsWrite(LS.jadwal, S.jadwal); lsWrite(LS.accounts, S.accounts); lsWrite(LS.sessions, S.sessions);
+        lsWrite(LS.jadwal, S.jadwal); lsWrite(LS.accounts, S.accounts);
         try { const s = await http("sig"); lastSig = (s && s.sig) || ""; } catch (e) { /* abaikan */ }
       }
     } else {
       S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
-      S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []); S.sessions = lsRead(LS.sessions, []);
+      S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []);
       if (!localStorage.getItem(LS.seeded)) seedDemo();
     }
   } catch (e) {
     console.error("init:", e);
     S.petugas = lsRead(LS.petugas, []); S.records = lsRead(LS.records, []);
-    S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []); S.sessions = lsRead(LS.sessions, []);
+    S.jadwal = lsRead(LS.jadwal, []); S.accounts = lsRead(LS.accounts, []);
   }
   ensureAdmin();
   emit();
   return MODE;
 }
 
-/* live-sync: poll sidik jari, muat ulang bila berubah */
 function startSync(intervalMs) {
   if (MODE !== "db") return;
   setInterval(async () => {
     try {
       const s = await http("sig");
       if (s && s.sig && s.sig !== lastSig) { lastSig = s.sig; await init(); }
-    } catch (e) { /* server sibuk, lewati */ }
+    } catch (e) { /* server sibuk */ }
   }, intervalMs || 3500);
 }
 
@@ -121,11 +116,11 @@ function persistDelete(table, id, rows) {
 
 /* ---------------- shift & waktu ---------------- */
 const SHIFT = {
-  1: { nama: "Pagi", waktu: "08.00–12.00", label: "Shift 1", mulai: 8 * 60 },
-  2: { nama: "Siang", waktu: "12.00–16.00", label: "Shift 2", mulai: 12 * 60 },
+  1: { nama: "Pagi", waktu: "08.00–12.00", label: "Shift 1", mulai: 8 * 60, selesai: 12 * 60 },
+  2: { nama: "Siang", waktu: "12.00–15.30", label: "Shift 2", mulai: 12 * 60, selesai: 15 * 60 + 30 },
 };
 const HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-const HARI_KERJA = [1, 2, 3, 4, 5, 6];
+const HARI_KERJA = [1, 2, 3, 4, 5]; // Senin–Jumat
 
 function pad(n) { return String(n).padStart(2, "0"); }
 function todayStr(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -145,42 +140,49 @@ function menitTerlambat(r) {
   const m = d.getHours() * 60 + d.getMinutes();
   return Math.max(0, m - (SHIFT[r.shift].mulai + 10));
 }
+/* waktu selesai shift 2 berbeda di hari Jumat */
+function waktuShift(tanggalStr, shift) {
+  if (shift === 1) return SHIFT[1].waktu;
+  const d = new Date(tanggalStr + "T12:00:00");
+  return d.getDay() === 5 ? "12.00–16.00" : SHIFT[2].waktu;
+}
 
-/* ---------------- jadwal ---------------- */
-function jadwalUntuk(d) { const hari = d.getDay(); return S.jadwal.filter((j) => j.hari === hari); }
-function generateJadwal() {
+/* ---------------- jadwal per bulan ---------------- */
+function jadwalUntukTanggal(tanggalStr) {
+  return S.jadwal.filter((j) => j.tanggal === tanggalStr);
+}
+function jadwalUntukSekarang() {
+  return jadwalUntukTanggal(todayStr());
+}
+function generateJadwalBulan(tahun, bulan) {
   const p = S.petugas, n = p.length, out = [];
   if (n === 0) return out;
-  HARI_KERJA.forEach((hari, di) => {
-    out.push({ id: uid(), hari: hari, shift: 1, petugasId: p[(di * 2) % n].id });
-    out.push({ id: uid(), hari: hari, shift: 2, petugasId: p[(di * 2 + 1) % n].id });
+  // semua hari kerja di bulan tsb
+  const hariKerja = [];
+  const d = new Date(tahun, bulan - 1, 1);
+  while (d.getMonth() === bulan - 1) {
+    if (HARI_KERJA.indexOf(d.getDay()) >= 0) hariKerja.push(todayStr(d));
+    d.setDate(d.getDate() + 1);
+  }
+  // isi 4 slot per shift per hari, bergiliran
+  let idx = 0;
+  hariKerja.forEach((tgl) => {
+    [1, 2].forEach((sh) => {
+      for (let ur = 1; ur <= 4; ur++) {
+        out.push({ id: uid(), tanggal: tgl, shift: sh, urutan: ur, petugasId: p[idx % n].id });
+        idx++;
+      }
+    });
   });
   return out;
 }
 
-/* ---------------- sesi QR ---------------- */
-function getSessionFor(shift) {
-  const t = todayStr();
-  let s = S.sessions.find((x) => x.date === t && x.shift === shift);
-  if (!s) {
-    s = { token: uid().toUpperCase(), date: t, shift: shift, createdAt: new Date().toISOString() };
-    S.sessions.push(s); persist("sessions", S.sessions);
-  }
-  return s;
-}
-function renewSession(shift) {
-  const t = todayStr();
-  S.sessions = S.sessions.filter((x) => !(x.date === t && x.shift === shift));
-  const s = { token: uid().toUpperCase(), date: t, shift: shift, createdAt: new Date().toISOString() };
-  S.sessions.push(s); persist("sessions", S.sessions);
-  return s;
-}
-function findSession(token) { return S.sessions.find((x) => x.token === token); }
-function scanUrlFor(token) { return location.href.replace(/[^/]*$/, "scan.html") + "?token=" + token; }
-
 /* ---------------- presensi ---------------- */
 function findOpenRecord(date, shift, petugasId) {
   return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId && !r.keluar);
+}
+function findRecord(date, shift, petugasId) {
+  return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId);
 }
 function checkIn(petugas, shift, fotoMasuk) {
   const r = { id: uid(), date: todayStr(), shift: shift, petugasId: petugas.id, nama: petugas.nama, masuk: new Date().toISOString(), keluar: null, fotoMasuk: fotoMasuk || null, fotoKeluar: null };
@@ -193,7 +195,6 @@ function checkOut(rec, fotoKeluar) {
   persist("records", S.records); emit();
   return rec;
 }
-/* hapus satu atau banyak catatan presensi (berkas foto ikut dibersihkan di server) */
 function deleteRecords(ids) {
   const set = new Set(ids);
   S.records = S.records.filter((r) => !set.has(r.id));
@@ -202,15 +203,14 @@ function deleteRecords(ids) {
   emit();
 }
 
-/* ---------------- akun / auth (sinkron, anti-terkunci) ---------------- */
+/* ---------------- akun / auth ---------------- */
 function verifyPw(acc, pw) {
-  if (acc.salt && acc.hash === hashPw(pw, acc.salt)) return true;           // format kini
-  if (!acc.salt && acc.hash === djb2("sipelok:" + pw + ":konawe")) return true; // warisan v0
+  if (acc.salt && acc.hash === hashPw(pw, acc.salt)) return true;
+  if (!acc.salt && acc.hash === djb2("sipelok:" + pw + ":konawe")) return true;
   return false;
 }
 function ensureAdmin() {
-  const ada = S.accounts.some((a) => a.role === "admin");
-  if (!ada) {
+  if (!S.accounts.some((a) => a.role === "admin")) {
     S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt: ADMIN_SALT, hash: hashPw("bpskonawe", ADMIN_SALT), dibuat: new Date().toISOString() });
     persist("accounts", S.accounts);
   }
@@ -219,8 +219,6 @@ function login(username, password) {
   ensureAdmin();
   const acc = S.accounts.find((a) => a.username.toLowerCase() === username.trim().toLowerCase());
   if (!acc) return null;
-  // pemulihan akun bawaan: bila admin tersimpan dalam format versi lama yang
-  // tak dikenali, mengetik sandi bawaan akan memulihkannya ke format kini
   if (acc.username === "admin" && !verifyPw(acc, password) && password === "bpskonawe") {
     acc.salt = ADMIN_SALT; acc.hash = hashPw(password, ADMIN_SALT);
     persist("accounts", S.accounts);
@@ -230,10 +228,7 @@ function login(username, password) {
   return acc;
 }
 function getAuth() {
-  try {
-    const u = sessionStorage.getItem(AUTH_KEY);
-    return u ? (S.accounts.find((a) => a.username === u) || null) : null;
-  } catch (e) { return null; }
+  try { const u = sessionStorage.getItem(AUTH_KEY); return u ? (S.accounts.find((a) => a.username === u) || null) : null; } catch (e) { return null; }
 }
 function logout() { try { sessionStorage.removeItem(AUTH_KEY); } catch (e) { /* abaikan */ } }
 
@@ -273,28 +268,34 @@ const DEMO = [
   ["Andi Saputra, S.ST", "19870412 201001 1 003"], ["Rina Kartika, S.E.", "19910223 201502 2 007"],
   ["Muh. Fajar, S.Kom", "19930817 201903 1 002"], ["Sri Wahyuni, S.Stat", "19950530 202012 2 001"],
   ["Laode Arman, S.E.", "19891105 201403 1 005"], ["Nurul Hidayah, S.ST", "19970714 202203 2 004"],
+  ["Budi Santoso, S.Stat", "19850618 200801 1 008"], ["Dewi Lestari, S.E.", "19920925 201603 2 006"],
 ];
 function seedDemo(force) {
   if (MODE === "db" && !force) return;
   if (!force && localStorage.getItem(LS.seeded)) return;
   S.petugas = DEMO.map((d) => ({ id: uid(), nama: d[0], nip: d[1] }));
-  S.jadwal = generateJadwal();
+  const now = new Date();
+  S.jadwal = generateJadwalBulan(now.getFullYear(), now.getMonth() + 1);
   S.accounts = [];
   S.accounts.push({ username: "admin", nama: "Administrator", role: "admin", salt: ADMIN_SALT, hash: hashPw("bpskonawe", ADMIN_SALT), dibuat: new Date().toISOString() });
-  S.sessions = []; S.records = [];
-  const hour = new Date().getHours();
-  const rec = (shift, i, telat, keluar) => {
-    const j = S.jadwal.find((x) => x.shift === shift) || {};
-    const p = S.petugas.find((x) => x.id === j.petugasId) || S.petugas[i % S.petugas.length];
+  S.records = [];
+  // contoh presensi hari ini
+  const hour = now.getHours();
+  const jd = jadwalUntukSekarang();
+  const rec = (shift, urutanIdx, telat, keluar) => {
+    const j = jd.find((x) => x.shift === shift && x.urutan === urutanIdx + 1);
+    if (!j) return;
+    const p = S.petugas.find((x) => x.id === j.petugasId);
+    if (!p) return;
     const d = new Date(); d.setHours(shift === 1 ? 8 : 12, telat, 0, 0);
     const masuk = d.toISOString(); let out = null;
     if (keluar != null) { const e = new Date(d); e.setMinutes(e.getMinutes() + 230 + keluar); out = e.toISOString(); }
     S.records.push({ id: uid(), date: todayStr(), shift: shift, petugasId: p.id, nama: p.nama, masuk: masuk, keluar: out, fotoMasuk: null, fotoKeluar: null });
   };
   if (hour >= 8) { rec(1, 0, -7, hour >= 12 ? 8 : null); rec(1, 1, 6, hour >= 12 ? -4 : null); }
-  if (hour >= 12) { rec(2, 2, -4, null); rec(2, 3, 5, null); }
+  if (hour >= 12) { rec(2, 0, -4, null); rec(2, 1, 5, null); }
   lsWrite(LS.petugas, S.petugas); lsWrite(LS.records, S.records); lsWrite(LS.jadwal, S.jadwal);
-  lsWrite(LS.accounts, S.accounts); lsWrite(LS.sessions, S.sessions);
+  lsWrite(LS.accounts, S.accounts);
   localStorage.setItem(LS.seeded, "1");
   emit();
 }
@@ -307,13 +308,8 @@ function downloadCsv(nama, baris) {
   a.download = nama; a.click(); URL.revokeObjectURL(a.href);
 }
 
-/* ---------------- salin, QR & foto ---------------- */
+/* ---------------- salin & foto ---------------- */
 async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
-function qrImg(url, size) {
-  return "https://api.qrserver.com/v1/create-qr-code/?size=" + size + "x" + size +
-         "&color=0C2431&bgcolor=FFFFFF&margin=1&data=" + encodeURIComponent(url);
-}
-/* perkecil foto HP agar hemat penyimpanan (maks 720px, JPEG) */
 function kecilkanFoto(file, done) {
   const img = new Image();
   const url = URL.createObjectURL(file);

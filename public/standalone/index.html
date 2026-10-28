@@ -49,7 +49,7 @@
         '<div class="mt-1" style="display:flex;flex-direction:column;gap:9px">' + isi + '</div></div>';
     }).join("");
 
-    const tokenKini = getSessionFor(shift).token;
+
 
     el("#app").innerHTML =
       '<header class="topbar"><div class="wrap">' +
@@ -73,7 +73,7 @@
 
             '<div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">' +
               '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Loket — PC Front Office <span class="badge mist" style="font-size:.56rem">QR</span></b><small>Buka di komputer loket: menampilkan QR presensi & umpan langsung.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
-              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="scan.html?token=' + tokenKini + '"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Scan HP</b><small>Tautan shift yang sedang berjalan: <span class="tnum">' + tokenKini + '</span>. Di lapangan, pindai QR dari layar loket.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="scan.html"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Presensi HP</b><small>Buka di HP petugas untuk mencatat jam masuk/pulang + foto atribut. Shift terdeteksi otomatis dari jam.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
               '<a class="card jnd j-c hoverable rise" style="animation-delay:.14s" href="admin.html"><span class="plat">C</span><span class="grow"><b>Admin & Rekap</b><small>Rekap presensi, jadwal piket mingguan, kelola petugas & akun.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
             '</div>' +
           '</section>' +
