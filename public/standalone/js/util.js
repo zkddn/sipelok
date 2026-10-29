@@ -73,6 +73,58 @@ async function http(action, opts) {
   }
 }
 
+/* HTTP dengan progress tracking menggunakan XMLHttpRequest */
+function httpWithProgress(action, opts, onProgress) {
+  return new Promise((resolve, reject) => {
+    opts = opts || {};
+    let url = API + "?action=" + encodeURIComponent(action);
+    if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("X-Sipelok-Key", API_KEY);
+    
+    // Track upload progress
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable && onProgress) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        onProgress({
+          percent: percent,
+          loaded: e.loaded,
+          total: e.total,
+          status: "Mengupload data..."
+        });
+      }
+    };
+    
+    xhr.onload = function() {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.ok) {
+          if (onProgress) {
+            onProgress({ percent: 100, status: "Upload selesai!" });
+          }
+          resolve(data);
+        } else {
+          reject(new Error(data.error || "Unknown error"));
+        }
+      } catch (e) {
+        reject(e);
+      }
+    };
+    
+    xhr.onerror = function() {
+      reject(new Error("Network error"));
+    };
+    
+    if (opts.body) {
+      console.log("HTTP POST with progress:", action, "Table:", opts.table);
+      xhr.send(JSON.stringify(opts.body));
+    }
+  });
+}
+
 /* ---------------- deteksi mode & bootstrap ---------------- */
 async function detectMode() {
   try {
@@ -424,7 +476,7 @@ function findOpenRecord(date, shift, petugasId) {
 function findRecord(date, shift, petugasId) {
   return S.records.find((r) => r.date === date && r.shift === shift && r.petugasId === petugasId);
 }
-function checkIn(petugas, shift, fotoMasuk) {
+function checkIn(petugas, shift, fotoMasuk, onProgress) {
   const r = { id: uid(), date: todayStr(), shift: shift, petugasId: petugas.id, nama: petugas.nama, masuk: new Date().toISOString(), keluar: null, fotoMasuk: fotoMasuk || null, fotoKeluar: null };
   S.records.unshift(r);
   
@@ -433,25 +485,43 @@ function checkIn(petugas, shift, fotoMasuk) {
   
   // Simpan ke database jika mode db
   if (MODE === "db") {
-    http("save", { table: "records", body: S.records })
+    if (onProgress) {
+      onProgress({ percent: 10, status: "Menyimpan ke database..." });
+    }
+    
+    httpWithProgress("save", { table: "records", body: S.records }, onProgress)
       .then(res => {
         if (!res || !res.ok) {
           console.error("Gagal simpan presensi ke database:", res);
+          if (onProgress) {
+            onProgress({ percent: 100, status: "Gagal menyimpan ke server", error: true });
+          }
           alert("Peringatan: Presensi tersimpan lokal tapi gagal ke server. Periksa koneksi database.");
         } else {
           console.log("Presensi berhasil disimpan ke database. ID:", r.id);
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✓ Presensi berhasil disimpan!", success: true });
+          }
         }
       })
       .catch(err => {
         console.error("Error simpan presensi ke database:", err);
+        if (onProgress) {
+          onProgress({ percent: 100, status: "Error koneksi ke server", error: true });
+        }
         alert("Error koneksi ke server. Presensi tersimpan lokal saja.");
       });
+  } else {
+    // Mode lokal, langsung selesai
+    if (onProgress) {
+      onProgress({ percent: 100, status: "✓ Presensi tersimpan (mode lokal)", success: true });
+    }
   }
   
   emit();
   return r;
 }
-function checkOut(rec, fotoKeluar) {
+function checkOut(rec, fotoKeluar, onProgress) {
   rec.keluar = new Date().toISOString();
   if (fotoKeluar) rec.fotoKeluar = fotoKeluar;
   
@@ -460,19 +530,37 @@ function checkOut(rec, fotoKeluar) {
   
   // Simpan ke database jika mode db
   if (MODE === "db") {
-    http("save", { table: "records", body: S.records })
+    if (onProgress) {
+      onProgress({ percent: 10, status: "Menyimpan ke database..." });
+    }
+    
+    httpWithProgress("save", { table: "records", body: S.records }, onProgress)
       .then(res => {
         if (!res || !res.ok) {
           console.error("Gagal simpan presensi pulang ke database:", res);
+          if (onProgress) {
+            onProgress({ percent: 100, status: "Gagal menyimpan ke server", error: true });
+          }
           alert("Peringatan: Presensi pulang tersimpan lokal tapi gagal ke server.");
         } else {
           console.log("Presensi pulang berhasil disimpan. ID:", rec.id);
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✓ Presensi pulang berhasil disimpan!", success: true });
+          }
         }
       })
       .catch(err => {
         console.error("Error simpan presensi pulang ke database:", err);
+        if (onProgress) {
+          onProgress({ percent: 100, status: "Error koneksi ke server", error: true });
+        }
         alert("Error koneksi ke server. Presensi pulang tersimpan lokal saja.");
       });
+  } else {
+    // Mode lokal, langsung selesai
+    if (onProgress) {
+      onProgress({ percent: 100, status: "✓ Presensi tersimpan (mode lokal)", success: true });
+    }
   }
   
   emit();

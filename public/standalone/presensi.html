@@ -16,6 +16,54 @@
   .jenis span { display: block; text-align: center; padding: 12px 8px; border-radius: 12px; border: 1.5px solid var(--mist-200); font-weight: 800; font-size: .85rem; cursor: pointer; transition: all .15s; background: #fff; }
   .jenis input:checked + span.jm { background: var(--lagoon-100); border-color: var(--lagoon-600); color: var(--lagoon-700); }
   .jenis input:checked + span.jp { background: var(--brand-100); border-color: var(--brand-600); color: var(--brand-700); }
+  
+  /* Progress Bar Styles */
+  .progress-container {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--mist-50);
+    border-radius: 8px;
+    border: 1px solid var(--mist-200);
+  }
+  .progress-bar-wrapper {
+    width: 100%;
+    height: 24px;
+    background: var(--mist-200);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
+    border-radius: 12px;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 0.75rem;
+  }
+  .progress-status {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--ink-700);
+    font-weight: 600;
+  }
+  .progress-detail {
+    font-size: 0.75rem;
+    color: var(--ink-500);
+    margin-top: 4px;
+  }
+  .upload-success {
+    color: var(--lagoon-700);
+    font-weight: 700;
+  }
+  .upload-error {
+    color: var(--ruby-700);
+    font-weight: 700;
+  }
 </style>
 </head>
 <body class="bg-board" style="color:var(--mist-50);min-height:100vh">
@@ -76,6 +124,13 @@
 
       '<div class="mt-2"><label class="f">Foto Atribut <span id="wajibFoto" style="color:var(--ruby-700)">(wajib saat masuk)</span></label>' +
       '<input type="file" accept="image/*" capture="user" class="input" id="foto" style="padding:9px">' +
+      '<div id="progressContainer" class="progress-container hidden">' +
+        '<div class="progress-bar-wrapper">' +
+          '<div id="progressBar" class="progress-bar" style="width: 0%">0%</div>' +
+        '</div>' +
+        '<div id="progressStatus" class="progress-status">Mempersiapkan upload...</div>' +
+        '<div id="progressDetail" class="progress-detail"></div>' +
+      '</div>' +
       '<img id="pratinjau" class="shot mt-1 hidden" alt="pratinjau foto">' +
       '<div class="row mt-1 hidden" id="aksiFoto"><button class="btn light sm" id="ulangFoto">↻ Ambil Ulang</button><button class="btn light sm" id="hapusFoto">✕ Hapus</button></div></div>' +
 
@@ -142,9 +197,59 @@
     el("#foto").onchange = (e) => {
       const f = e.target.files && e.target.files[0];
       if (!f) return;
+      
+      // Tampilkan progress container
+      const progressContainer = el("#progressContainer");
+      const progressBar = el("#progressBar");
+      const progressStatus = el("#progressStatus");
+      const progressDetail = el("#progressDetail");
+      
+      progressContainer.classList.remove("hidden");
+      progressBar.style.width = "0%";
+      progressBar.textContent = "0%";
+      progressStatus.textContent = "Mempersiapkan foto...";
+      progressStatus.className = "progress-status";
+      progressDetail.textContent = "Ukuran file: " + (f.size / 1024).toFixed(1) + " KB";
+      
+      // Simulasi progress saat kompresi foto
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        if (progress <= 80) {
+          progressBar.style.width = progress + "%";
+          progressBar.textContent = progress + "%";
+          progressStatus.textContent = "Mengompresi foto...";
+        }
+      }, 100);
+      
       kecilkanFoto(f, (data) => {
-        foto = data;
-        if (data) { el("#pratinjau").src = data; el("#pratinjau").classList.remove("hidden"); el("#aksiFoto").classList.remove("hidden"); }
+        clearInterval(progressInterval);
+        
+        if (data) {
+          foto = data;
+          progressBar.style.width = "100%";
+          progressBar.textContent = "100%";
+          progressStatus.textContent = "✓ Foto berhasil dikompresi";
+          progressStatus.className = "progress-status upload-success";
+          
+          const compressedSize = Math.round(data.length * 0.75 / 1024); // estimasi ukuran setelah kompresi
+          progressDetail.textContent = "Ukuran asli: " + (f.size / 1024).toFixed(1) + " KB → Kompresi: ~" + compressedSize + " KB";
+          
+          // Sembunyikan progress setelah 2 detik
+          setTimeout(() => {
+            progressContainer.classList.add("hidden");
+          }, 2000);
+          
+          el("#pratinjau").src = data;
+          el("#pratinjau").classList.remove("hidden");
+          el("#aksiFoto").classList.remove("hidden");
+        } else {
+          progressBar.style.width = "100%";
+          progressBar.textContent = "Error";
+          progressStatus.textContent = "✗ Gagal mengompresi foto";
+          progressStatus.className = "progress-status upload-error";
+          progressDetail.textContent = "Silakan coba foto lain";
+        }
       });
     };
     el("#ulangFoto").onclick = () => { el("#foto").value = ""; el("#foto").click(); };
@@ -163,16 +268,85 @@
       if (!jenis) { pesan.textContent = "Pilih jenis presensi (Masuk atau Pulang)."; return; }
       const petugas = S.petugas.find((p) => p.id === pid);
 
+      // Tampilkan progress container
+      const progressContainer = el("#progressContainer");
+      const progressBar = el("#progressBar");
+      const progressStatus = el("#progressStatus");
+      const progressDetail = el("#progressDetail");
+      
+      progressContainer.classList.remove("hidden");
+      progressBar.style.width = "0%";
+      progressBar.textContent = "0%";
+      progressStatus.textContent = "Mempersimpan data presensi...";
+      progressStatus.className = "progress-status";
+      progressDetail.textContent = "";
+      
+      // Disable tombol kirim saat upload
+      const tombolKirim = el("#kirim");
+      tombolKirim.disabled = true;
+      tombolKirim.textContent = "Menyimpan...";
+
+      // Progress callback
+      const onProgress = (progress) => {
+        progressBar.style.width = progress.percent + "%";
+        progressBar.textContent = progress.percent + "%";
+        progressStatus.textContent = progress.status;
+        
+        if (progress.loaded && progress.total) {
+          const loadedKB = (progress.loaded / 1024).toFixed(1);
+          const totalKB = (progress.total / 1024).toFixed(1);
+          progressDetail.textContent = "Upload: " + loadedKB + " KB / " + totalKB + " KB";
+        }
+        
+        if (progress.error) {
+          progressStatus.className = "progress-status upload-error";
+          tombolKirim.disabled = false;
+          tombolKirim.textContent = "Simpan Presensi";
+        } else if (progress.success) {
+          progressStatus.className = "progress-status upload-success";
+          // Tunggu sebentar sebelum tampilkan hasil
+          setTimeout(() => {
+            progressContainer.classList.add("hidden");
+            if (jenis === "masuk") {
+              const r = checkIn(petugas, sh, foto);
+              tampilkanHasil(r, "masuk");
+            } else {
+              const terbuka = findOpenRecord(t, sh, pid);
+              const r = checkOut(terbuka, foto);
+              tampilkanHasil(r, "keluar");
+            }
+          }, 1000);
+        }
+      };
+
       if (jenis === "masuk") {
-        if (!foto) { pesan.textContent = "Foto atribut wajib saat presensi masuk."; return; }
-        if (findRecord(t, sh, pid)) { pesan.textContent = "Anda sudah memiliki catatan masuk pada shift ini."; return; }
-        const r = checkIn(petugas, sh, foto);
-        tampilkanHasil(r, "masuk");
+        if (!foto) { 
+          pesan.textContent = "Foto atribut wajib saat presensi masuk.";
+          progressContainer.classList.add("hidden");
+          tombolKirim.disabled = false;
+          tombolKirim.textContent = "Simpan Presensi";
+          return; 
+        }
+        if (findRecord(t, sh, pid)) { 
+          pesan.textContent = "Anda sudah memiliki catatan masuk pada shift ini.";
+          progressContainer.classList.add("hidden");
+          tombolKirim.disabled = false;
+          tombolKirim.textContent = "Simpan Presensi";
+          return; 
+        }
+        // Panggil checkIn dengan progress callback
+        checkIn(petugas, sh, foto, onProgress);
       } else {
         const terbuka = findOpenRecord(t, sh, pid);
-        if (!terbuka) { pesan.textContent = "Belum ada presensi masuk untuk dipulangkan. Pilih jenis Masuk."; return; }
-        const r = checkOut(terbuka, foto);
-        tampilkanHasil(r, "keluar");
+        if (!terbuka) { 
+          pesan.textContent = "Belum ada presensi masuk untuk dipulangkan. Pilih jenis Masuk.";
+          progressContainer.classList.add("hidden");
+          tombolKirim.disabled = false;
+          tombolKirim.textContent = "Simpan Presensi";
+          return; 
+        }
+        // Panggil checkOut dengan progress callback
+        checkOut(terbuka, foto, onProgress);
       }
     };
   }
