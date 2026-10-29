@@ -66,17 +66,70 @@ function to_iso(?string $v): ?string { if (!$v) return null; $t = strtotime($v);
 function to_dt(?string $v): ?string  { if (!$v) return null; $t = strtotime($v); return $t === false ? null : date('Y-m-d H:i:s', $t); }
 
 function simpan_foto(?string $v, string $id, string $suf): ?string {
-  if (!$v) return null;
-  if (strpos($v, 'image') === 0) {
+  if (!$v) {
+    error_log("SIPELOK Foto: Data kosong untuk ID $id");
+    return null;
+  }
+  
+  // Cek apakah ini data URL (format: data:image/jpeg;base64,...)
+  if (strpos($v, 'data:image') === 0) {
+    error_log("SIPELOK Foto: Memproses data URL untuk ID $id, panjang: " . strlen($v));
+    
+    // Extract base64 data setelah koma
     $pos = strpos($v, ',');
-    $bin = base64_decode($pos === false ? '' : substr($v, $pos + 1), true);
-    if ($bin === false) return null;
+    if ($pos === false) {
+      error_log("SIPELOK Foto: Tidak ditemukan koma dalam data URL");
+      return null;
+    }
+    
+    $base64Data = substr($v, $pos + 1);
+    $bin = base64_decode($base64Data, true);
+    
+    if ($bin === false) {
+      error_log("SIPELOK Foto: Gagal decode base64 untuk ID $id");
+      return null;
+    }
+    
+    error_log("SIPELOK Foto: Berhasil decode base64, ukuran: " . strlen($bin) . " bytes");
+    
     $dir = __DIR__ . '/uploads';
-    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    
+    // Cek apakah folder ada dan writable
+    if (!is_dir($dir)) {
+      error_log("SIPELOK Foto: Folder uploads tidak ada, mencoba membuat: $dir");
+      if (!@mkdir($dir, 0777, true)) {
+        error_log("SIPELOK Foto: GAGAL membuat folder uploads: $dir");
+        return null;
+      }
+      error_log("SIPELOK Foto: Berhasil membuat folder uploads");
+    }
+    
+    // Cek permission
+    if (!is_writable($dir)) {
+      error_log("SIPELOK Foto: Folder uploads tidak writable: $dir");
+      return null;
+    }
+    
     $nama = preg_replace('/[^A-Za-z0-9_-]/', '', $id) . '_' . $suf . '.jpg';
-    if (@file_put_contents($dir . '/' . $nama, $bin) === false) return null;
+    $path = $dir . '/' . $nama;
+    
+    error_log("SIPELOK Foto: Menyimpan ke: $path");
+    
+    $result = @file_put_contents($path, $bin);
+    
+    if ($result === false) {
+      error_log("SIPELOK Foto: GAGAL menyimpan file: $path");
+      return null;
+    }
+    
+    error_log("SIPELOK Foto: Berhasil menyimpan file: $path (" . $result . " bytes)");
+    
+    // Return path relatif untuk diakses via web
     return 'api/uploads/' . $nama;
   }
+  
+  // Jika bukan data URL, return as-is (mungkin sudah berupa path)
+  error_log("SIPELOK Foto: Bukan data URL, return as-is: $v");
   return $v;
 }
 
