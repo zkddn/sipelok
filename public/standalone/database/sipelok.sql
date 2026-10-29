@@ -22,39 +22,34 @@ CREATE TABLE IF NOT EXISTS presensi (
   nama        VARCHAR(120) NOT NULL,
   masuk       DATETIME     NULL,
   keluar      DATETIME     NULL,
-  foto_masuk  VARCHAR(255) NULL,       -- path berkas di api/uploads/
+  foto_masuk  VARCHAR(255) NULL,
   foto_keluar VARCHAR(255) NULL,
   updated     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_tanggal (tanggal),
   INDEX idx_petugas (petugas_id)
 ) ENGINE=InnoDB;
 
+-- Jadwal piket PER BULAN: setiap (tanggal, shift) diisi 4 petugas.
+-- urutan = 1..4 (slot ke-berapa di shift tersebut).
 CREATE TABLE IF NOT EXISTS jadwal (
   id         VARCHAR(40) PRIMARY KEY,
-  hari       TINYINT     NOT NULL,     -- 1=Senin .. 6=Sabtu
+  tanggal    DATE        NOT NULL,
   shift      TINYINT     NOT NULL,     -- 1=Pagi 2=Siang
+  urutan     TINYINT     NOT NULL,     -- 1..4
   petugas_id VARCHAR(40) NOT NULL,
   updated    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_hari (hari)
+  INDEX idx_tanggal (tanggal),
+  UNIQUE KEY uq_slot (tanggal, shift, urutan)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS akun (
   username VARCHAR(60)  PRIMARY KEY,
   nama     VARCHAR(120) NOT NULL,
-  peran    VARCHAR(20)  NOT NULL DEFAULT 'viewer',   -- admin | viewer
+  peran    VARCHAR(20)  NOT NULL DEFAULT 'viewer',
   hash     VARCHAR(100) NOT NULL,
   salt     VARCHAR(40)  NULL,
   dibuat   DATETIME     NULL,
   updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS sesi (
-  token   VARCHAR(40) PRIMARY KEY,
-  tanggal DATE        NOT NULL,
-  shift   TINYINT     NOT NULL,
-  dibuat  DATETIME    NULL,
-  updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
--- Akun admin bawaan (admin / bpskonawe) dibuat OTOMATIS oleh api.php
--- saat pertama kali diakses. Tidak perlu INSERT manual.
+-- Akun admin bawaan (admin / bpskonawe) dibuat OTOMATIS oleh api.php.

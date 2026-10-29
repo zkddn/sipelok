@@ -28,7 +28,7 @@
     const now = new Date();
     const shift = shiftForTime(now);
     lastShift = shift;
-    const jd = jadwalUntuk(now);
+    const jd = jadwalUntukSekarang();
     const t = todayStr();
 
     const barisPiket = [1, 2].map((sh) => {
@@ -49,7 +49,7 @@
         '<div class="mt-1" style="display:flex;flex-direction:column;gap:9px">' + isi + '</div></div>';
     }).join("");
 
-    const tokenKini = getSessionFor(shift).token;
+
 
     el("#app").innerHTML =
       '<header class="topbar"><div class="wrap">' +
@@ -65,15 +65,15 @@
           '<section>' +
             '<span class="eyebrow"><span class="dot live-dot"></span> Loket Pelayanan Terpadu</span>' +
             '<h1 class="display" style="font-size:clamp(2.3rem,5.5vw,3.6rem);margin-top:14px">Selamat datang di<br><span style="color:var(--brand-600)">Pelayanan Statistik</span> Konawe.</h1>' +
-            '<p class="muted mt-1" style="max-width:46ch">Petugas piket menjaga loket dalam dua shift setiap hari kerja. Pilih peran Anda di bawah — presensi cukup dengan memindai QR di layar loket.</p>' +
+            '<p class="muted mt-1" style="max-width:46ch">Petugas piket menjaga loket dalam dua shift setiap hari kerja. Pilih peran Anda di bawah — presensi cukup buka presensi.html di HP.</p>' +
             '<div class="row mt-2" style="flex-wrap:wrap;gap:12px">' +
               '<span class="chipshift s' + shift + '">' + SHIFT[shift].label + ' · ' + SHIFT[shift].nama + ' ' + SHIFT[shift].waktu + ' WITA</span>' +
               '<span class="small muted capitalize">' + now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + '</span>' +
             '</div>' +
 
             '<div style="display:flex;flex-direction:column;gap:14px;margin-top:30px">' +
-              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Loket — PC Front Office <span class="badge mist" style="font-size:.56rem">QR</span></b><small>Buka di komputer loket: menampilkan QR presensi & umpan langsung.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
-              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="scan.html?token=' + tokenKini + '"><span class="plat">B</span><span class="grow"><b>Petugas Piket — Scan HP</b><small>Tautan shift yang sedang berjalan: <span class="tnum">' + tokenKini + '</span>. Di lapangan, pindai QR dari layar loket.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd hoverable rise" href="loket.html"><span class="plat">A</span><span class="grow"><b>Layar Utama — PC Front Office</b><small>Buka di komputer loket: menampilkan daftar petugas piket hari ini & status presensi.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
+              '<a class="card jnd j-b hoverable rise" style="animation-delay:.07s" href="presensi.html"><span class="plat">B</span><span class="grow"><b>Presensi — HP Petugas</b><small>Buka di HP petugas untuk mencatat jam masuk/pulang + foto atribut. Shift terdeteksi otomatis dari jam.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
               '<a class="card jnd j-c hoverable rise" style="animation-delay:.14s" href="admin.html"><span class="plat">C</span><span class="grow"><b>Admin & Rekap</b><small>Rekap presensi, jadwal piket mingguan, kelola petugas & akun.</small></span><svg class="panah" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>' +
             '</div>' +
           '</section>' +

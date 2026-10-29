@@ -56,7 +56,7 @@
           '<span class="eyebrow">Arsitektur</span>' +
           '<svg viewBox="0 0 720 130" style="width:100%;margin-top:14px" role="img" aria-label="Diagram arsitektur">' +
             '<g font-family="Plus Jakarta Sans" font-size="13" font-weight="700">' +
-              '<rect x="10" y="35" width="170" height="60" rx="14" fill="#0c2431"/><text x="95" y="62" fill="#f7f4ec" text-anchor="middle">HP Petugas</text><text x="95" y="80" fill="#c3bba6" text-anchor="middle" font-size="11">scan.html</text>' +
+              '<rect x="10" y="35" width="170" height="60" rx="14" fill="#0c2431"/><text x="95" y="62" fill="#f7f4ec" text-anchor="middle">HP Petugas</text><text x="95" y="80" fill="#c3bba6" text-anchor="middle" font-size="11">presensi.html</text>' +
               '<rect x="275" y="35" width="170" height="60" rx="14" fill="#f2691f"/><text x="360" y="62" fill="#1d1206" text-anchor="middle">api.php</text><text x="360" y="80" fill="#4a2408" text-anchor="middle" font-size="11">PHP · satu berkas</text>' +
               '<rect x="540" y="35" width="170" height="60" rx="14" fill="#17857b"/><text x="625" y="62" fill="#f7f4ec" text-anchor="middle">MySQL</text><text x="625" y="80" fill="#cfe8e2" text-anchor="middle" font-size="11">database sipelok</text>' +
               '<path class="flowline" d="M180 65 H275" stroke="#f2691f" stroke-width="3" stroke-dasharray="7 6" fill="none"/>' +
@@ -86,8 +86,8 @@
             '<span class="eyebrow">Isi Folder</span>' +
             '<pre class="kode mt-1">sipelok/
 ├─ index.html      beranda / hub
-├─ loket.html      layar PC front office (QR)
-├─ scan.html       presensi via HP
+├─ loket.html      layar PC front office (daftar petugas)
+├─ presensi.html   presensi via HP petugas
 ├─ admin.html      rekap & pengaturan
 ├─ panduan.html    halaman ini
 ├─ css/gaya.css
@@ -108,9 +108,9 @@
             '<li>Cek IP komputer XAMPP: buka CMD, ketik <b>ipconfig</b> (mis. <b>192.168.1.10</b>).</li>' +
             '<li>Izinkan Apache & MySQL pada Windows Firewall (akses jaringan privat).</li>' +
             '<li>Di HP yang satu Wi-Fi, buka <b>http://192.168.1.10/sipelok/</b>.</li>' +
-            '<li>QR di layar loket otomatis memuat alamat tersebut — petugas tinggal memindai.</li>' +
+            '<li>HP petugas buka <b>http://192.168.1.10/sipelok/presensi.html</b> — pilih nama, shift, lalu foto atribut.</li>' +
           '</ol>' +
-          '<p class="small muted mt-1" style="margin-bottom:0"><b>Catatan:</b> gambar QR memakai layanan qrserver.com sehingga PC loket butuh internet. Bila offline, petugas tetap bisa memakai tautan yang tercantum di bawah QR.</p>' +
+          '<p class="small muted mt-1" style="margin-bottom:0"><b>Catatan:</b> Petugas cukup buka <b>presensi.html</b> di HP, pilih nama & shift, lalu foto atribut. Shift terdeteksi otomatis dari jam (sebelum 12.00 = Shift 1, setelahnya = Shift 2).</p>' +
         '</div>' +
 
         '<div class="card pad rise mt-2">' +
@@ -135,7 +135,7 @@
 
         '<div class="card dark pad rise mt-2" style="background:var(--ink-900);color:var(--mist-50)">' +
           '<span class="eyebrow on-dark">Alur Harian</span>' +
-          '<p class="small mt-1" style="color:var(--mist-300);margin-bottom:0">Pagi: buka <b>loket.html</b> di PC front office → petugas shift pagi memindai QR & berfoto atribut → feed muncul seketika. Siang: QR otomatis berganti shift 2. Sore/mingguan: admin membuka <b>admin.html</b> → cek rekap → ekspor CSV untuk laporan.</p>' +
+          '<p class="small mt-1" style="color:var(--mist-300);margin-bottom:0">Pagi: buka <b>loket.html</b> di PC front office → petugas shift pagi buka <b>presensi.html</b> di HP & berfoto atribut → feed muncul seketika. Siang: shift otomatis berganti ke shift 2. Sore/mingguan: admin membuka <b>admin.html</b> → cek rekap → ekspor CSV untuk laporan.</p>' +
         '</div>' +
       '</main>' +
 

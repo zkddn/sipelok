@@ -4,23 +4,32 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Admin & Rekap · SIPELOK</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="icon" href="image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%230c2431'/%3E%3Cg fill='none' stroke='%23f2691f' stroke-width='7' stroke-linecap='round'%3E%3Crect x='30' y='34' width='68' height='56' rx='12'/%3E%3Cpath d='M30 52h68M46 76V64M60 76V58M74 76v-8'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/gaya.css" />
 <style>
-  .grid-jadwal { display: grid; grid-template-columns: 112px 1fr 1fr; gap: 8px; align-items: center; }
-  .jhead { font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-500); text-align: center; }
   .filter-chip { padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--mist-200); font-weight: 800; font-size: .78rem; cursor: pointer; background: #fff; color: var(--ink-600); transition: all .15s; }
   .filter-chip.on { background: var(--ink-900); border-color: var(--ink-900); color: #fff; }
+  .kalender { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .kalender .tgl { background: #fff; border: 1.5px solid var(--mist-200); border-radius: 12px; padding: 10px; font-size: .72rem; transition: border-color .15s; }
+  .kalender .tgl:hover { border-color: var(--brand-500); }
+  .kalender .tgl.libur { background: var(--mist-100); opacity: .5; }
+  .kalender .tgl .nomor { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; color: var(--ink-900); }
+  .kalender .tgl .shift { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--mist-200); }
+  .kalender .tgl .shift b { display: block; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-500); margin-bottom: 3px; }
+  .kalender .tgl .shift .petugas { font-size: .68rem; color: var(--ink-700); line-height: 1.4; }
+  .kalender .tgl.kosong { background: var(--mist-100); opacity: .3; }
+  .kalender .tgl.clickable { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+  .kalender .tgl.clickable:hover { border-color: var(--brand-500); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(242, 105, 31, 0.2); }
 </style>
 </head>
 <body class="bg-paper">
 <script>
   window.onerror = function (msg, src, line) {
     var t = document.getElementById("app");
-    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p><p style="opacity:.7;margin:0">Muat ulang halaman (Ctrl+R), atau salin ulang folder <b>standalone</b> secara lengkap.</p></div>';
+    if (t) t.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:26px;background:#0c2431;color:#f7f4ec;border-radius:16px;font-family:sans-serif"><b>Galat JavaScript</b><p style="margin:8px 0">' + msg + ' (baris ' + line + ')</p></div>';
   };
 </script>
 <div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--ink-500)"><span class="spin" style="font-size:1.6rem">◌</span>&nbsp; Memuat…</div></div>
@@ -29,7 +38,8 @@
 <script>
   let akun = null, tabAktif = "rekap";
   let q = "", cepat = "today", fShift = 0, fDari = "", fSampai = "";
-  let terpilih = []; // id catatan rekap yang dipilih untuk dihapus
+  let terpilih = [];
+  let kalTahun = new Date().getFullYear(), kalBulan = new Date().getMonth() + 1;
 
   /* ============ gerbang masuk ============ */
   function renderLogin() {
@@ -43,7 +53,7 @@
         '<p id="lerr" class="small" style="color:var(--ruby-700);margin-top:10px;min-height:1em"></p>' +
         '<button class="btn primary block mt-1" id="lbtn">Masuk</button>' +
         '<p class="small muted center mt-2">Akun bawaan: <b>admin</b> / <b>bpskonawe</b></p>' +
-        '<p class="small muted center" style="margin-top:4px">Terkunci? Jalankan <b>DELETE FROM akun;</b> di phpMyAdmin, lalu muat ulang — akun bawaan dibuat ulang otomatis.</p>' +
+        '<p class="small muted center" style="margin-top:4px">Terkunci? Jalankan <b>DELETE FROM akun;</b> di phpMyAdmin, lalu muat ulang.</p>' +
         '<p class="small center mt-1"><a href="index.html">← Kembali ke beranda</a></p>' +
       '</div></div>';
     const go = () => {
@@ -96,9 +106,9 @@
 
   /* ============ PIKET HARI INI ============ */
   function piketHariIniHtml() {
-    const t = todayStr(), jd = jadwalUntuk(new Date());
+    const t = todayStr(), jd = jadwalUntukTanggal(t);
     const baris = [1, 2].map((sh) => {
-      const list = jd.filter((j) => j.shift === sh);
+      const list = jd.filter((j) => j.shift === sh).sort((a, b) => a.urutan - b.urutan);
       if (!list.length) return "";
       const isi = list.map((j) => {
         const p = S.petugas.find((x) => x.id === j.petugasId);
@@ -108,11 +118,11 @@
         else if (rec) st = '<span class="badge lagoon">Bertugas sejak ' + fmtHM(rec.masuk) + '</span>';
         return '<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap"><b>' + esc(p ? p.nama : "—") + '</b>' + st + '</div>';
       }).join("");
-      return '<div class="card pad" style="padding:14px 18px"><span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + ' · ' + SHIFT[sh].nama + '</span><div class="mt-1" style="display:flex;flex-direction:column;gap:8px">' + isi + '</div></div>';
+      return '<div class="card pad" style="padding:14px 18px"><span class="badge ' + (sh === 1 ? "brand" : "lagoon") + '">' + SHIFT[sh].label + ' · ' + SHIFT[sh].nama + ' (' + waktuShift(t, sh) + ')</span><div class="mt-1" style="display:flex;flex-direction:column;gap:8px">' + isi + '</div></div>';
     }).join("");
     return '<div class="card pad rise"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><span class="eyebrow">Piket Hari Ini — ' + fmtDateLong(t) + '</span>' +
       '<button class="btn light sm no-print" id="keJadwal">Atur Jadwal →</button></div>' +
-      '<div class="grid-2 mt-1">' + (baris || '<span class="small muted">Belum ada jadwal hari ini (Minggu libur, atau jadwal belum diatur).</span>') + '</div></div>';
+      '<div class="grid-2 mt-1">' + (baris || '<span class="small muted">Belum ada jadwal hari ini.</span>') + '</div></div>';
   }
 
   /* ============ REKAP ============ */
@@ -175,7 +185,7 @@
           const foto = (r.fotoMasuk || r.fotoKeluar) ? '<button class="btn light sm" data-foto="' + (r.fotoMasuk || r.fotoKeluar) + '">Lihat</button>' : '<span class="muted small">—</span>';
           const pilih = terpilih.indexOf(r.id) >= 0;
           return '<tr class="' + (r.date === todayStr() ? "today" : "") + (pilih ? " sel" : "") + '">' +
-            (isAdmin ? '<td class="pil no-print"><input type="checkbox" data-pilih="' + r.id + '" ' + (pilih ? "checked" : "") + ' aria-label="Pilih catatan ' + esc(r.nama) + '"></td>' : "") +
+            (isAdmin ? '<td class="pil no-print"><input type="checkbox" data-pilih="' + r.id + '" ' + (pilih ? "checked" : "") + '></td>' : "") +
             '<td><div class="row"><span class="ini">' + inisial(r.nama) + '</span><div><b>' + esc(r.nama) + '</b><br><span class="small muted tnum">' + esc(p && p.nip ? p.nip : "NIP —") + '</span></div></div></td>' +
             '<td class="tnum">' + fmtDateShort(r.date) + '</td>' +
             '<td><span class="badge ' + (r.shift === 1 ? "brand" : "lagoon") + '">' + SHIFT[r.shift].label + '</span></td>' +
@@ -183,7 +193,7 @@
             '<td class="tnum">' + (r.keluar ? fmtHM(r.keluar) : "—") + '</td>' +
             '<td class="tnum">' + fmtDurasi(durasiMenit(r)) + '</td>' +
             '<td>' + foto + '</td><td>' + status + '</td>' +
-            (isAdmin ? '<td class="no-print"><button class="btn ghost sm" data-hapusrec="' + r.id + '" title="Hapus catatan ini" style="background:var(--ruby-100);color:var(--ruby-700);border-color:rgba(165,42,47,.25)">🗑</button></td>' : "") + '</tr>';
+            (isAdmin ? '<td class="no-print"><button class="btn ghost sm" data-hapusrec="' + r.id + '" style="background:var(--ruby-100);color:var(--ruby-700);border-color:rgba(165,42,47,.25)">🗑</button></td>' : "") + '</tr>';
         }).join("") + '</tbody></table>') +
         '<div class="pad small muted" style="padding:12px 18px">Menampilkan ' + rows.length + ' dari ' + S.records.length + ' catatan.</div>' +
       '</div>';
@@ -191,10 +201,7 @@
     const kj = el("#keJadwal"); if (kj) kj.onclick = () => { tabAktif = "jadwal"; renderShell(); };
     document.querySelectorAll(".filter-chip").forEach((c) => c.onclick = () => { cepat = c.dataset.q; renderRekap(); });
     const cq = el("#cq");
-    if (cq) {
-      cq.oninput = (e) => { q = e.target.value; renderRekap(); };
-      cq.focus(); cq.setSelectionRange(cq.value.length, cq.value.length);
-    }
+    if (cq) { cq.oninput = (e) => { q = e.target.value; renderRekap(); }; cq.focus(); cq.setSelectionRange(cq.value.length, cq.value.length); }
     el("#cdari").onchange = (e) => { fDari = e.target.value; cepat = "all"; renderRekap(); };
     el("#csampai").onchange = (e) => { fSampai = e.target.value; cepat = "all"; renderRekap(); };
     el("#cshift").onchange = (e) => { fShift = Number(e.target.value); renderRekap(); };
@@ -206,7 +213,6 @@
     el("#cetak").onclick = () => window.print();
     document.querySelectorAll("[data-foto]").forEach((b) => b.onclick = () => bukaLb(b.dataset.foto));
 
-    /* --- pilihan & penghapusan rekap (khusus admin) --- */
     if (isAdmin) {
       const perbaruiTombol = () => {
         const b = el("#hpilih");
@@ -218,10 +224,7 @@
       if (ps) ps.onchange = () => {
         if (ps.checked) rows.forEach((r) => { if (terpilih.indexOf(r.id) < 0) terpilih.push(r.id); });
         else terpilih = terpilih.filter((id) => !rows.some((r) => r.id === id));
-        document.querySelectorAll("[data-pilih]").forEach((c) => {
-          c.checked = ps.checked;
-          c.closest("tr").classList.toggle("sel", ps.checked);
-        });
+        document.querySelectorAll("[data-pilih]").forEach((c) => { c.checked = ps.checked; c.closest("tr").classList.toggle("sel", ps.checked); });
         perbaruiTombol();
       };
       document.querySelectorAll("[data-pilih]").forEach((c) => c.onchange = () => {
@@ -256,54 +259,532 @@
   function bukaLb(src) { el("#lbImg").src = src; el("#lb").classList.remove("hidden"); }
   function tutupLb() { el("#lb").classList.add("hidden"); }
 
-  /* ============ JADWAL ============ */
+  /* ============ JADWAL PER BULAN ============ */
   function renderJadwal() {
-    const hariIni = new Date().getDay();
-    const sel = (hari, shift) => {
-      const cur = S.jadwal.find((j) => j.hari === hari && j.shift === shift);
-      return '<select class="input" data-hari="' + hari + '" data-shift="' + shift + '" style="padding:8px 10px;font-size:.82rem">' +
-        '<option value="">— kosong —</option>' +
-        S.petugas.map((p) => '<option value="' + p.id + '" ' + (cur && cur.petugasId === p.id ? "selected" : "") + '>' + esc(p.nama) + '</option>').join("") +
-        '</select>';
-    };
-    const grid = HARI_KERJA.map((h) =>
-      '<div class="jhead" style="text-align:left' + (h === hariIni ? ";color:var(--brand-600)" : "") + '">' + HARI[h] + (h === hariIni ? " ·" : "") + '</div>' +
-      sel(h, 1) + sel(h, 2)).join("");
+    const isAdmin = akun && akun.role === "admin";
+    const namaBulan = new Date(kalTahun, kalBulan - 1, 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 
-    const beban = {};
-    S.jadwal.forEach((j) => { beban[j.petugasId] = (beban[j.petugasId] || 0) + 1; });
-    const bebanHtml = S.petugas.map((p) =>
-      '<span class="badge mist tnum" style="text-transform:none;letter-spacing:0">' + esc(p.nama) + ' · ' + (beban[p.id] || 0) + ' slot</span>').join(" ");
+    // semua hari di bulan tsb
+    const hariBulan = [];
+    const d = new Date(kalTahun, kalBulan - 1, 1);
+    while (d.getMonth() === kalBulan - 1) {
+      hariBulan.push({ tanggal: todayStr(d), hari: d.getDay(), tanggalObj: new Date(d) });
+      d.setDate(d.getDate() + 1);
+    }
+
+    // kalender: 5 kolom (Senin-Jumat), baris per minggu
+    // Pastikan Senin selalu di kiri dengan padding hari kosong
+    const minggu = [];
+    let mingguIni = [];
+    
+    // Hitung padding awal (berapa hari kosong sebelum tanggal 1)
+    const tanggal1 = new Date(kalTahun, kalBulan - 1, 1);
+    const hariTanggal1 = tanggal1.getDay(); // 0=Minggu, 1=Senin, ...
+    const paddingAwal = hariTanggal1 === 0 ? 4 : hariTanggal1 - 1; // Senin=0, Selasa=1, ...
+    
+    // Tambahkan padding kosong di awal
+    for (let i = 0; i < paddingAwal; i++) {
+      mingguIni.push(null); // null = hari kosong
+    }
+    
+    // Tambahkan hari kerja
+    hariBulan.forEach((h) => {
+      if (h.hari === 0 || h.hari === 6) return; // skip Minggu & Sabtu
+      mingguIni.push(h);
+      if (mingguIni.length === 5) { 
+        minggu.push(mingguIni); 
+        mingguIni = []; 
+      }
+    });
+    
+    // Tambahkan sisa hari di minggu terakhir
+    if (mingguIni.length) {
+      // Padding akhir agar selalu 5 kolom
+      while (mingguIni.length < 5) {
+        mingguIni.push(null);
+      }
+      minggu.push(mingguIni);
+    }
+
+    const kalenderHtml = minggu.map((mg) =>
+      '<div class="kalender">' +
+      mg.map((h) => {
+        // Jika null, tampilkan hari kosong
+        if (!h) {
+          return '<div class="tgl kosong"></div>';
+        }
+        const jd = jadwalUntukTanggal(h.tanggal);
+        const s1 = jd.filter((j) => j.shift === 1).sort((a, b) => a.urutan - b.urutan);
+        const s2 = jd.filter((j) => j.shift === 2).sort((a, b) => a.urutan - b.urutan);
+        // Hanya tampilkan nama petugas (tanpa role)
+        const namaShift = (list) => list.map((j) => {
+          const p = S.petugas.find((x) => x.id === j.petugasId);
+          return p ? esc(p.nama.split(",")[0]) : "—";
+        }).join("<br>");
+        return '<div class="tgl clickable" data-tanggal="' + h.tanggal + '" onclick="editJadwalTanggal(\'' + h.tanggal + '\')" title="Klik untuk edit jadwal">' +
+          '<div class="nomor">' + h.tanggalObj.getDate() + '</div>' +
+          '<div class="small muted">' + HARI[h.hari] + '</div>' +
+          '<div class="shift"><b>Shift 1 · Pagi</b><div class="petugas">' + (s1.length ? namaShift(s1) : '<span class="muted">kosong</span>') + '</div></div>' +
+          '<div class="shift"><b>Shift 2 · Siang</b><div class="petugas">' + (s2.length ? namaShift(s2) : '<span class="muted">kosong</span>') + '</div></div>' +
+        '</div>';
+      }).join("") +
+      '</div>'
+    ).join("");
 
     el("#isi").innerHTML =
       '<div class="card pad rise">' +
         '<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">' +
-          '<div><span class="eyebrow">Jadwal Piket Mingguan</span><h2 class="display mt-1" style="font-size:1.5rem">Senin – Sabtu · 2 Shift</h2></div>' +
-          '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn light sm" id="jcsv">⬇ Unduh CSV</button>' +
-          '<button class="btn primary sm" id="jrotasi">↻ Rotasi Otomatis</button>' +
-          '<button class="btn danger sm" id="jkosong">Kosongkan</button></div>' +
+          '<div>' +
+            '<span class="eyebrow">Jadwal Piket Bulanan</span>' +
+            '<h2 class="display mt-1" style="font-size:1.5rem">' + namaBulan + '</h2>' +
+            '<p class="small muted mt-1">Senin–Jumat · Shift 1: 08.00–12.00 · Shift 2: 12.00–15.30 (Jumat sampai 16.00) · 4 petugas per shift</p>' +
+          '</div>' +
+          '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+            '<button class="btn light sm" id="prevBulan">← Bulan Lalu</button>' +
+            '<button class="btn light sm" id="nextBulan">Bulan Depan →</button>' +
+            (isAdmin ? '<button class="btn primary sm" id="jrotasi">↻ Rotasi Otomatis</button>' : '') +
+            '<button class="btn light sm" id="jexport">⬇ Export</button>' +
+            (isAdmin ? '<button class="btn light sm" id="jimport">⬇ Import</button>' : '') +
+            (isAdmin ? '<button class="btn danger sm" id="jclean">🧹 Bersihkan Duplikat</button>' : '') +
+          '</div>' +
         '</div>' +
-        '<p class="small muted mt-1">Titik (·) menandakan hari ini. Minggu libur. Perubahan tersimpan otomatis.</p>' +
-        '<div class="mt-2"><div class="grid-jadwal"><span></span><span class="jhead">Shift 1 · Pagi (08–12)</span><span class="jhead">Shift 2 · Siang (12–16)</span>' + grid + '</div></div>' +
-        '<hr class="sep"><span class="eyebrow">Distribusi Giliran</span><div class="row mt-1" style="flex-wrap:wrap;gap:6px">' + (bebanHtml || '<span class="small muted">Belum ada petugas.</span>') + '</div>' +
+        '<div class="mt-2">' + kalenderHtml + '</div>' +
       '</div>';
 
-    document.querySelectorAll("[data-hari]").forEach((s) => s.onchange = () => {
-      const hari = Number(s.dataset.hari), shift = Number(s.dataset.shift), pid = s.value;
-      S.jadwal = S.jadwal.filter((j) => !(j.hari === hari && j.shift === shift));
-      if (pid) S.jadwal.push({ id: uid(), hari: hari, shift: shift, petugasId: pid });
-      persist("jadwal", S.jadwal); emit(); renderJadwal();
-    });
-    el("#jrotasi").onclick = () => { if (confirm("Susun rotasi otomatis dari daftar petugas? Jadwal lama diganti.")) { S.jadwal = generateJadwal(); persist("jadwal", S.jadwal); emit(); renderJadwal(); } };
-    el("#jkosong").onclick = () => { if (confirm("Kosongkan seluruh jadwal piket?")) { S.jadwal = []; persist("jadwal", S.jadwal); emit(); renderJadwal(); } };
-    el("#jcsv").onclick = () => {
-      const data = [["Hari", "Shift", "Petugas", "NIP"]];
-      HARI_KERJA.forEach((h) => [1, 2].forEach((sh) => {
-        const j = S.jadwal.find((x) => x.hari === h && x.shift === sh);
-        const p = j ? S.petugas.find((x) => x.id === j.petugasId) : null;
-        data.push([HARI[h], "Shift " + sh + " (" + SHIFT[sh].nama + ")", p ? p.nama : "", (p && p.nip) || ""]);
-      }));
-      downloadCsv("jadwal-piket-sipelok.csv", data);
+    el("#prevBulan").onclick = () => {
+      kalBulan--;
+      if (kalBulan < 1) { kalBulan = 12; kalTahun--; }
+      renderJadwal();
+    };
+    el("#nextBulan").onclick = () => {
+      kalBulan++;
+      if (kalBulan > 12) { kalBulan = 1; kalTahun++; }
+      renderJadwal();
+    };
+    
+    // Fungsi edit jadwal per tanggal
+    window.editJadwalTanggal = function(tanggal) {
+      if (!isAdmin) {
+        alert("Hanya admin yang dapat mengedit jadwal");
+        return;
+      }
+      
+      console.log("Edit jadwal untuk tanggal:", tanggal);
+      
+      const jd = jadwalUntukTanggal(tanggal);
+      const tglObj = new Date(tanggal + "T12:00:00");
+      const tglFormatted = tglObj.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      
+      // Buat dropdown options
+      const options = S.petugas.map(p => 
+        '<option value="' + p.id + '">' + esc(p.nama) + '</option>'
+      ).join("");
+      
+      // Ambil petugas yang sudah ada untuk setiap slot
+      const getPetugas = (shift, urutan) => {
+        const j = jd.find(x => x.shift === shift && x.urutan === urutan);
+        return j ? j.petugasId : "";
+      };
+      
+      // Buat form
+      const form = `
+        <div style="max-width: 600px; margin: 0 auto;">
+          <h3 style="margin-bottom: 20px; color: var(--brand-500);">Edit Jadwal: ${tglFormatted}</h3>
+          
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: var(--ink-700);">Shift 1 · Pagi (08.00-12.00)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Frontliner</label>
+                <select id="s1u1" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Konsultasi</label>
+                <select id="s1u2" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Rekomendasi</label>
+                <select id="s1u3" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Perpustakaan</label>
+                <select id="s1u4" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: var(--ink-700);">Shift 2 · Siang (12.00-15.30)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Frontliner</label>
+                <select id="s2u1" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Konsultasi</label>
+                <select id="s2u2" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Rekomendasi</label>
+                <select id="s2u3" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--ink-500); margin-bottom: 5px;">Perpustakaan</label>
+                <select id="s2u4" class="input">
+                  <option value="">-- Kosong --</option>
+                  ${options}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-light" onclick="closeEditModal()">Batal</button>
+            <button class="btn btn-primary" onclick="saveJadwalTanggal('${tanggal}')">Simpan</button>
+          </div>
+        </div>
+      `;
+      
+      // Tampilkan modal
+      showModal(form);
+      
+      // Set nilai dropdown
+      setTimeout(() => {
+        document.getElementById("s1u1").value = getPetugas(1, 1);
+        document.getElementById("s1u2").value = getPetugas(1, 2);
+        document.getElementById("s1u3").value = getPetugas(1, 3);
+        document.getElementById("s1u4").value = getPetugas(1, 4);
+        document.getElementById("s2u1").value = getPetugas(2, 1);
+        document.getElementById("s2u2").value = getPetugas(2, 2);
+        document.getElementById("s2u3").value = getPetugas(2, 3);
+        document.getElementById("s2u4").value = getPetugas(2, 4);
+      }, 100);
+    };
+    
+    // Fungsi simpan jadwal per tanggal
+    window.saveJadwalTanggal = function(tanggal) {
+      console.log("Saving jadwal for tanggal:", tanggal);
+      
+      // Hapus jadwal lama untuk tanggal ini
+      S.jadwal = S.jadwal.filter(j => j.tanggal !== tanggal);
+      
+      // Tambahkan jadwal baru
+      const slots = [
+        { shift: 1, urutan: 1, value: document.getElementById("s1u1").value },
+        { shift: 1, urutan: 2, value: document.getElementById("s1u2").value },
+        { shift: 1, urutan: 3, value: document.getElementById("s1u3").value },
+        { shift: 1, urutan: 4, value: document.getElementById("s1u4").value },
+        { shift: 2, urutan: 1, value: document.getElementById("s2u1").value },
+        { shift: 2, urutan: 2, value: document.getElementById("s2u2").value },
+        { shift: 2, urutan: 3, value: document.getElementById("s2u3").value },
+        { shift: 2, urutan: 4, value: document.getElementById("s2u4").value },
+      ];
+      
+      let count = 0;
+      slots.forEach(slot => {
+        if (slot.value) {
+          S.jadwal.push({
+            id: uid(),
+            tanggal: tanggal,
+            shift: slot.shift,
+            urutan: slot.urutan,
+            petugasId: slot.value
+          });
+          count++;
+        }
+      });
+      
+      console.log("Saved", count, "slots for tanggal:", tanggal);
+      
+      // Simpan ke database
+      persist("jadwal", S.jadwal);
+      
+      // Tutup modal
+      closeEditModal();
+      
+      // Refresh tampilan
+      renderJadwal();
+      
+      alert("✓ Jadwal berhasil disimpan untuk " + new Date(tanggal + "T12:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" }));
+    };
+    
+    // Fungsi tutup modal
+    window.closeEditModal = function() {
+      const modal = document.getElementById("editModal");
+      if (modal) {
+        modal.remove();
+      }
+    };
+    
+    // Fungsi tampilkan modal
+    function showModal(content) {
+      // Hapus modal lama jika ada
+      const oldModal = document.getElementById("editModal");
+      if (oldModal) {
+        oldModal.remove();
+      }
+      
+      // Buat modal baru
+      const modal = document.createElement("div");
+      modal.id = "editModal";
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      `;
+      
+      const modalContent = document.createElement("div");
+      modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      `;
+      modalContent.innerHTML = content;
+      
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      // Tutup modal jika klik di luar
+      modal.onclick = function(e) {
+        if (e.target === modal) {
+          closeEditModal();
+        }
+      };
+    }
+    if (isAdmin) {
+      el("#jrotasi").onclick = async () => {
+        if (confirm("Susun rotasi otomatis untuk " + namaBulan + "? Jadwal lama bulan ini diganti.")) {
+          console.log("=== ROTASI OTOMATIS START ===");
+          
+          // Filter prefix yang benar: YYYY-MM
+          const prefix = kalTahun + "-" + pad(kalBulan);
+          console.log("Bulan target:", prefix);
+          console.log("Jumlah jadwal sebelum filter:", S.jadwal.length);
+          
+          // Validasi: cek duplikat ID di jadwal saat ini
+          const idSet = new Set();
+          const duplicateIds = [];
+          S.jadwal.forEach(j => {
+            if (idSet.has(j.id)) {
+              duplicateIds.push(j.id);
+            }
+            idSet.add(j.id);
+          });
+          
+          if (duplicateIds.length > 0) {
+            console.warn("Found duplicate IDs in current jadwal:", duplicateIds.length);
+            console.warn("Duplicate IDs:", duplicateIds.slice(0, 10));
+            
+            // Regenerate ID yang duplikat
+            S.jadwal.forEach(j => {
+              if (duplicateIds.includes(j.id)) {
+                const oldId = j.id;
+                j.id = uid();
+                console.log("Regenerated ID:", oldId, "->", j.id);
+              }
+            });
+          }
+          
+          // hapus jadwal bulan ini
+          const jadwalLama = S.jadwal.filter((j) => j.tanggal.startsWith(prefix));
+          console.log("Jumlah jadwal bulan ini yang akan dihapus:", jadwalLama.length);
+          
+          S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(prefix));
+          console.log("Jumlah jadwal setelah filter:", S.jadwal.length);
+          
+          // generate baru
+          console.log("Generating jadwal baru...");
+          const baru = generateJadwalBulan(kalTahun, kalBulan);
+          console.log("Jumlah jadwal baru yang di-generate:", baru.length);
+          
+          if (baru.length === 0) {
+            alert("✗ Error: Tidak ada jadwal yang di-generate. Periksa console untuk detail.");
+            return;
+          }
+          
+          // Validasi: pastikan tidak ada ID duplikat di jadwal baru
+          const baruIdSet = new Set();
+          const baruDuplicateIds = [];
+          baru.forEach(j => {
+            if (baruIdSet.has(j.id)) {
+              baruDuplicateIds.push(j.id);
+            }
+            baruIdSet.add(j.id);
+          });
+          
+          if (baruDuplicateIds.length > 0) {
+            console.error("ERROR: Duplicate IDs found in generated jadwal!", baruDuplicateIds);
+            alert("✗ Error: Ada ID duplikat di jadwal yang di-generate. Periksa console.");
+            return;
+          }
+          
+          // Verifikasi jadwal yang di-generate
+          const tanggalUnik = [...new Set(baru.map(j => j.tanggal))];
+          console.log("Tanggal unik yang di-generate:", tanggalUnik.length);
+          console.log("Tanggal pertama:", tanggalUnik[0]);
+          console.log("Tanggal terakhir:", tanggalUnik[tanggalUnik.length - 1]);
+          
+          S.jadwal = S.jadwal.concat(baru);
+          console.log("Jumlah jadwal total setelah concat:", S.jadwal.length);
+          
+          // Validasi akhir: cek duplikat (tanggal, shift, urutan)
+          const keySet = new Set();
+          const duplicateKeys = [];
+          S.jadwal.forEach(j => {
+            const key = `${j.tanggal}-${j.shift}-${j.urutan}`;
+            if (keySet.has(key)) {
+              duplicateKeys.push(key);
+            }
+            keySet.add(key);
+          });
+          
+          if (duplicateKeys.length > 0) {
+            console.warn("Found duplicate keys in jadwal:", duplicateKeys.length);
+            console.warn("Duplicate keys:", duplicateKeys.slice(0, 10));
+          }
+          
+          // Simpan ke database
+          console.log("Saving to database...");
+          persist("jadwal", S.jadwal);
+          emit();
+          renderJadwal();
+          
+          console.log("=== ROTASI OTOMATIS END ===");
+          
+          alert("✓ Rotasi otomatis berhasil untuk " + namaBulan + "\n\n" +
+                "Total slot: " + baru.length + "\n" +
+                "Hari kerja: " + tanggalUnik.length + " hari\n" +
+                "Periode: " + tanggalUnik[0] + " s/d " + tanggalUnik[tanggalUnik.length - 1] + "\n\n" +
+                "Periksa console browser (F12) untuk detail logging.");
+        }
+      };
+      el("#jimport").onclick = () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".csv";
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const lines = ev.target.result.split(/\r?\n/).filter((l) => l.trim());
+              let count = 0;
+              // hapus jadwal bulan ini dulu
+              S.jadwal = S.jadwal.filter((j) => !j.tanggal.startsWith(kalTahun + "-" + pad(kalBulan)));
+              lines.forEach((line, i) => {
+                if (i === 0 && line.toLowerCase().indexOf("tanggal") >= 0) return; // skip header
+                const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
+                // format: tanggal,shift,urutan,petugas_id
+                if (parts[0] && parts[1] && parts[2] && parts[3]) {
+                  S.jadwal.push({
+                    id: uid(),
+                    tanggal: parts[0],
+                    shift: Number(parts[1]),
+                    urutan: Number(parts[2]),
+                    petugasId: parts[3]
+                  });
+                  count++;
+                }
+              });
+              persist("jadwal", S.jadwal);
+              emit();
+              alert("✓ Berhasil import " + count + " jadwal untuk " + namaBulan + ".");
+              renderJadwal();
+            } catch (err) {
+              alert("✗ Gagal import: " + err.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      };
+    }
+    el("#jexport").onclick = () => {
+      const jd = S.jadwal.filter((j) => j.tanggal.startsWith(kalTahun + "-" + pad(kalBulan)));
+      const csv = ["tanggal,shift,urutan,petugas_id,nama_petugas"];
+      jd.forEach((j) => {
+        const p = S.petugas.find((x) => x.id === j.petugasId);
+        csv.push([j.tanggal, j.shift, j.urutan, j.petugasId, p ? p.nama : ""].join(","));
+      });
+      const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "jadwal-" + kalTahun + "-" + pad(kalBulan) + ".csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    
+    // Tombol bersihkan duplikat
+    el("#jclean").onclick = async () => {
+      if (!confirm("Ini akan menghapus semua jadwal duplikat dari database. Lanjutkan?")) {
+        return;
+      }
+      
+      console.log("=== BERSIHKAN DUPLIKAT START ===");
+      
+      try {
+        // Panggil API untuk membersihkan duplikat
+        const response = await fetch('api/cleanup_jadwal.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          console.log("Cleanup result:", result);
+          alert(`✓ Berhasil membersihkan duplikat\n\n` +
+                `Total baris: ${result.total}\n` +
+                `Duplikat dihapus: ${result.deleted}\n` +
+                `Sisa: ${result.remaining}`);
+          
+          // Reload data dari database
+          await init();
+          renderJadwal();
+        } else {
+          console.error("Cleanup failed:", result);
+          alert("✗ Gagal membersihkan duplikat: " + (result.error || "Unknown error"));
+        }
+      } catch (err) {
+        console.error("Cleanup error:", err);
+        alert("✗ Error: " + err.message);
+      }
+      
+      console.log("=== BERSIHKAN DUPLIKAT END ===");
     };
   }
 
@@ -312,10 +793,14 @@
     el("#isi").innerHTML =
       '<div class="card pad rise">' +
         '<span class="eyebrow">Kelola Petugas Piket</span><h2 class="display mt-1" style="font-size:1.5rem">Daftar Petugas (' + S.petugas.length + ')</h2>' +
+        '<p class="small muted mt-1">Minimal 8 petugas disarankan agar rotasi 4 slot per shift berjalan merata.</p>' +
         '<div class="row mt-2" style="flex-wrap:wrap;gap:8px"><input class="input grow" id="pnama" placeholder="Nama lengkap & gelar" style="min-width:220px">' +
         '<input class="input inline" id="pnip" placeholder="NIP (opsional)" style="width:200px">' +
-        '<button class="btn primary" id="ptambah">+ Tambah</button></div>' +
+        '<button class="btn primary" id="ptambah">+ Tambah</button>' +
+        '<button class="btn light" id="pimport">⬇ Import CSV</button></div>' +
+        '<input type="file" id="pfile" accept=".csv" class="hidden">' +
         '<p id="ppesan" class="small" style="color:var(--ruby-700);margin-top:8px;min-height:1em"></p>' +
+        '<p class="small muted mt-1">Format CSV: <code>nama,nip</code> (satu petugas per baris)</p>' +
         '<div class="mt-2" style="display:flex;flex-direction:column;gap:8px">' +
         S.petugas.map((p) => {
           const n = S.jadwal.filter((j) => j.petugasId === p.id).length;
@@ -331,6 +816,33 @@
       persist("petugas", S.petugas); emit(); renderPetugas();
     };
     el("#pnama").onkeydown = (e) => { if (e.key === "Enter") el("#ptambah").click(); };
+    el("#pimport").onclick = () => el("#pfile").click();
+    el("#pfile").onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const lines = ev.target.result.split(/\r?\n/).filter((l) => l.trim());
+          let count = 0;
+          lines.forEach((line, i) => {
+            if (i === 0 && line.toLowerCase().indexOf("nama") >= 0) return; // skip header
+            const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
+            if (parts[0]) {
+              S.petugas.push({ id: uid(), nama: parts[0], nip: parts[1] || null });
+              count++;
+            }
+          });
+          persist("petugas", S.petugas);
+          emit();
+          el("#ppesan").innerHTML = '<span style="color:var(--lagoon-700)">✓ Berhasil import ' + count + ' petugas.</span>';
+          setTimeout(renderPetugas, 500);
+        } catch (err) {
+          el("#ppesan").innerHTML = '<span style="color:var(--ruby-700)">✗ Gagal import: ' + esc(err.message) + '</span>';
+        }
+      };
+      reader.readAsText(file);
+    };
     document.querySelectorAll("[data-hapus]").forEach((b) => b.onclick = () => {
       const p = S.petugas.find((x) => x.id === b.dataset.hapus);
       if (p && confirm("Hapus " + p.nama + " beserta slot jadwalnya? Riwayat presensi tetap tersimpan.")) {
@@ -383,9 +895,9 @@
       });
       el("#dseed").onclick = () => { if (confirm("Muat ulang data contoh? Data petugas, jadwal & presensi saat ini diganti.")) { seedDemo(true); renderAkun(); } };
       el("#dhapus").onclick = () => {
-        if (confirm("Hapus SEMUA petugas, jadwal, sesi & presensi?")) {
-          S.petugas = []; S.records = []; S.jadwal = []; S.sessions = [];
-          ["petugas", "records", "jadwal", "sessions"].forEach((t) => {
+        if (confirm("Hapus SEMUA petugas, jadwal, & presensi?")) {
+          S.petugas = []; S.records = []; S.jadwal = [];
+          ["petugas", "records", "jadwal"].forEach((t) => {
             lsWrite(LS[t], []);
             if (getMode() === "db") http("clear", { table: t }).catch(function () {});
           });
@@ -415,7 +927,6 @@
         '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink-900)">' +
         '<div class="card pad" style="max-width:440px"><span class="eyebrow">Halaman tidak dapat dimulai</span>' +
         '<p class="mt-1">Terjadi galat: <b>' + esc(String((err && err.message) || err)) + '</b></p>' +
-        '<p class="small muted mt-1">Muat ulang halaman (Ctrl+R). Bila berulang, hapus data situs browser untuk halaman ini, lalu salin ulang folder <b>standalone</b>.</p>' +
         '<button class="btn primary mt-2" onclick="location.reload()">Muat Ulang</button></div></div>';
     }
   })();
