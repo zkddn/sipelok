@@ -27,6 +27,10 @@
     const shiftAktif = shiftForTime(now);
     const jd = jadwalUntukTanggal(t);
 
+    // Generate QR code URL untuk presensi.html
+    const presensiUrl = location.origin + location.pathname.replace('loket.html', 'presensi.html');
+    const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(presensiUrl);
+
     // kelompokkan per shift
     const shift1 = jd.filter((j) => j.shift === 1).sort((a, b) => a.urutan - b.urutan);
     const shift2 = jd.filter((j) => j.shift === 2).sort((a, b) => a.urutan - b.urutan);
@@ -88,6 +92,15 @@
             '<div class="clock tnum" id="jamBesar">' + pad(now.getHours()) + '.' + pad(now.getMinutes()) + '<span class="sec">.' + pad(now.getSeconds()) + '</span></div>' +
             '<span class="chipshift s' + shiftAktif + '" style="margin-top:8px">' + SHIFT[shiftAktif].label + ' · ' + SHIFT[shiftAktif].nama + ' ' + waktuShift(t, shiftAktif) + ' WITA</span>' +
           '</div>' +
+        '</div>' +
+
+        '<div class="card dark pad mt-3" style="text-align:center">' +
+          '<span class="eyebrow on-dark">Akses Cepat Presensi</span>' +
+          '<p class="small mt-1" style="color:var(--mist-300)">Scan QR code di bawah dengan HP untuk membuka halaman presensi</p>' +
+          '<div style="margin:20px auto;display:inline-block;background:white;padding:20px;border-radius:16px">' +
+            '<img src="' + qrCodeUrl + '" alt="QR Code Presensi" style="width:250px;height:250px;display:block" />' +
+          '</div>' +
+          '<p class="small" style="color:var(--mist-400);word-break:break-all">' + esc(presensiUrl) + '</p>' +
         '</div>' +
 
         '<div class="grid-2 mt-3">' +
