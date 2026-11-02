@@ -77,8 +77,20 @@ async function http(action, opts) {
 function httpWithProgress(action, opts, onProgress) {
   return new Promise((resolve, reject) => {
     opts = opts || {};
-    let url = API + "?action=" + encodeURIComponent(action);
+    
+    // Pastikan URL lengkap dengan origin
+    let url = API;
+    if (!url.startsWith('http')) {
+      url = location.origin + '/' + url;
+    }
+    url += "?action=" + encodeURIComponent(action);
     if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
+    
+    console.log("=== httpWithProgress START ===");
+    console.log("URL:", url);
+    console.log("Action:", action);
+    console.log("Table:", opts.table);
+    console.log("Body size:", opts.body ? JSON.stringify(opts.body).length : 0, "bytes");
     
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url, true);
@@ -89,38 +101,75 @@ function httpWithProgress(action, opts, onProgress) {
     xhr.upload.onprogress = function(e) {
       if (e.lengthComputable && onProgress) {
         const percent = Math.round((e.loaded / e.total) * 100);
+        console.log("Upload progress:", percent + "%", e.loaded + "/" + e.total);
         onProgress({
           percent: percent,
           loaded: e.loaded,
           total: e.total,
-          status: "Mengupload data..."
+          status: "Mengupload data... (" + percent + "%)"
         });
       }
     };
     
     xhr.onload = function() {
+      console.log("=== httpWithProgress RESPONSE ===");
+      console.log("Status:", xhr.status);
+      console.log("Response:", xhr.responseText);
+      
       try {
         const data = JSON.parse(xhr.responseText);
-        if (data.ok) {
+        console.log("Parsed data:", data);
+        
+        if (xhr.status === 200 && data.ok) {
           if (onProgress) {
-            onProgress({ percent: 100, status: "Upload selesai!" });
+            onProgress({ percent: 100, status: "✓ Upload selesai!", success: true });
           }
+          console.log("=== httpWithProgress SUCCESS ===");
           resolve(data);
         } else {
-          reject(new Error(data.error || "Unknown error"));
+          const errorMsg = data.error || "HTTP " + xhr.status + ": " + xhr.statusText;
+          console.error("=== httpWithProgress ERROR ===", errorMsg);
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ " + errorMsg, error: true });
+          }
+          reject(new Error(errorMsg));
         }
       } catch (e) {
+        console.error("=== httpWithProgress PARSE ERROR ===", e);
+        console.error("Response text:", xhr.responseText);
+        if (onProgress) {
+          onProgress({ percent: 100, status: "✗ Parse error: " + e.message, error: true });
+        }
         reject(e);
       }
     };
     
     xhr.onerror = function() {
-      reject(new Error("Network error"));
+      console.error("=== httpWithProgress NETWORK ERROR ===");
+      console.error("URL:", url);
+      console.error("ReadyState:", xhr.readyState);
+      console.error("Status:", xhr.status);
+      
+      if (onProgress) {
+        onProgress({ percent: 100, status: "✗ Network error", error: true });
+      }
+      reject(new Error("Network error - tidak dapat terhubung ke server"));
+    };
+    
+    xhr.ontimeout = function() {
+      console.error("=== httpWithProgress TIMEOUT ===");
+      if (onProgress) {
+        onProgress({ percent: 100, status: "✗ Timeout", error: true });
+      }
+      reject(new Error("Request timeout"));
     };
     
     if (opts.body) {
-      console.log("HTTP POST with progress:", action, "Table:", opts.table);
+      console.log("Sending data...");
+      xhr.timeout = 30000; // 30 detik timeout
       xhr.send(JSON.stringify(opts.body));
+    } else {
+      reject(new Error("No body to send"));
     }
   });
 }
@@ -483,40 +532,58 @@ function checkIn(petugas, shift, fotoMasuk, onProgress) {
   // Simpan ke localStorage dulu
   lsWrite(LS.records, S.records);
   
+  console.log("=== checkIn START ===");
+  console.log("Record ID:", r.id);
+  console.log("Total records in S.records:", S.records.length);
+  console.log("Mode:", MODE);
+  
   // Simpan ke database jika mode db
   if (MODE === "db") {
     if (onProgress) {
       onProgress({ percent: 10, status: "Menyimpan ke database..." });
     }
     
-    httpWithProgress("save", { table: "records", body: S.records }, onProgress)
+    // Kirim hanya record baru (bukan semua records) untuk menghemat bandwidth
+    console.log("Sending only new record to server...");
+    
+    httpWithProgress("save", { table: "records", body: [r] }, onProgress)
       .then(res => {
+        console.log("=== checkIn RESPONSE ===");
+        console.log("Response:", res);
+        
         if (!res || !res.ok) {
           console.error("Gagal simpan presensi ke database:", res);
           if (onProgress) {
-            onProgress({ percent: 100, status: "Gagal menyimpan ke server", error: true });
+            onProgress({ percent: 100, status: "✗ Gagal: " + (res?.error || "Unknown error"), error: true });
           }
-          alert("Peringatan: Presensi tersimpan lokal tapi gagal ke server. Periksa koneksi database.");
+          alert("Peringatan: Presensi tersimpan lokal tapi gagal ke server.\n\nError: " + (res?.error || "Unknown") + "\n\nPeriksa console browser (F12) untuk detail.");
         } else {
-          console.log("Presensi berhasil disimpan ke database. ID:", r.id);
+          console.log("✓ Presensi berhasil disimpan ke database. ID:", r.id);
           if (onProgress) {
             onProgress({ percent: 100, status: "✓ Presensi berhasil disimpan!", success: true });
           }
         }
       })
       .catch(err => {
-        console.error("Error simpan presensi ke database:", err);
+        console.error("=== checkIn ERROR ===");
+        console.error("Error:", err);
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+        
         if (onProgress) {
-          onProgress({ percent: 100, status: "Error koneksi ke server", error: true });
+          onProgress({ percent: 100, status: "✗ Error: " + err.message, error: true });
         }
-        alert("Error koneksi ke server. Presensi tersimpan lokal saja.");
+        alert("Error koneksi ke server.\n\nError: " + err.message + "\n\nPresensi tersimpan lokal saja.\nPeriksa console browser (F12) untuk detail.");
       });
   } else {
+    console.log("Mode lokal, tidak mengirim ke server");
     // Mode lokal, langsung selesai
     if (onProgress) {
       onProgress({ percent: 100, status: "✓ Presensi tersimpan (mode lokal)", success: true });
     }
   }
+  
+  console.log("=== checkIn END ===");
   
   emit();
   return r;
@@ -528,40 +595,57 @@ function checkOut(rec, fotoKeluar, onProgress) {
   // Simpan ke localStorage dulu
   lsWrite(LS.records, S.records);
   
+  console.log("=== checkOut START ===");
+  console.log("Record ID:", rec.id);
+  console.log("Mode:", MODE);
+  
   // Simpan ke database jika mode db
   if (MODE === "db") {
     if (onProgress) {
       onProgress({ percent: 10, status: "Menyimpan ke database..." });
     }
     
-    httpWithProgress("save", { table: "records", body: S.records }, onProgress)
+    // Kirim hanya record yang diupdate (bukan semua records)
+    console.log("Sending only updated record to server...");
+    
+    httpWithProgress("save", { table: "records", body: [rec] }, onProgress)
       .then(res => {
+        console.log("=== checkOut RESPONSE ===");
+        console.log("Response:", res);
+        
         if (!res || !res.ok) {
           console.error("Gagal simpan presensi pulang ke database:", res);
           if (onProgress) {
-            onProgress({ percent: 100, status: "Gagal menyimpan ke server", error: true });
+            onProgress({ percent: 100, status: "✗ Gagal: " + (res?.error || "Unknown error"), error: true });
           }
-          alert("Peringatan: Presensi pulang tersimpan lokal tapi gagal ke server.");
+          alert("Peringatan: Presensi pulang tersimpan lokal tapi gagal ke server.\n\nError: " + (res?.error || "Unknown") + "\n\nPeriksa console browser (F12) untuk detail.");
         } else {
-          console.log("Presensi pulang berhasil disimpan. ID:", rec.id);
+          console.log("✓ Presensi pulang berhasil disimpan. ID:", rec.id);
           if (onProgress) {
             onProgress({ percent: 100, status: "✓ Presensi pulang berhasil disimpan!", success: true });
           }
         }
       })
       .catch(err => {
-        console.error("Error simpan presensi pulang ke database:", err);
+        console.error("=== checkOut ERROR ===");
+        console.error("Error:", err);
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+        
         if (onProgress) {
-          onProgress({ percent: 100, status: "Error koneksi ke server", error: true });
+          onProgress({ percent: 100, status: "✗ Error: " + err.message, error: true });
         }
-        alert("Error koneksi ke server. Presensi pulang tersimpan lokal saja.");
+        alert("Error koneksi ke server.\n\nError: " + err.message + "\n\nPresensi pulang tersimpan lokal saja.\nPeriksa console browser (F12) untuk detail.");
       });
   } else {
+    console.log("Mode lokal, tidak mengirim ke server");
     // Mode lokal, langsung selesai
     if (onProgress) {
       onProgress({ percent: 100, status: "✓ Presensi tersimpan (mode lokal)", success: true });
     }
   }
+  
+  console.log("=== checkOut END ===");
   
   emit();
   return rec;

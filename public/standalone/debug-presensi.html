@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Debug Presensi · SIPELOK</title>
+<link rel="stylesheet" href="css/gaya.css" />
+<style>
+  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+  .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+  .status.ok { background: #d4edda; color: #155724; }
+  .status.error { background: #f8d7da; color: #721c24; }
+  .status.info { background: #d1ecf1; color: #0c5460; }
+  pre { background: #000; color: #0f0; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 400px; overflow-y: auto; }
+  button { padding: 8px 16px; margin: 5px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; }
+  button:hover { background: #e9ecef; }
+  .btn-primary { background: #007bff; color: white; border-color: #007bff; }
+  .btn-primary:hover { background: #0056b3; }
+  .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+  .btn-danger:hover { background: #c82333; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+  th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+  th { background: #f8f9fa; font-weight: bold; }
+</style>
+</head>
+<body>
+<div style="max-width: 1200px; margin: 0 auto;">
+  <h1>🔧 Debug Presensi</h1>
+  <p>Halaman ini membantu Anda mendiagnosis masalah sinkronisasi presensi antara localStorage dan database MySQL.</p>
+
+  <div class="card">
+    <h2>1. Status Mode & Koneksi</h2>
+    <div id="modeStatus"></div>
+    <button onclick="checkMode()" class="btn-primary">Periksa Mode</button>
+  </div>
+
+  <div class="card">
+    <h2>2. Data di LocalStorage</h2>
+    <div id="localStorageStatus"></div>
+    <button onclick="showLocalStorage()">Tampilkan Data LocalStorage</button>
+    <div id="localStorageData"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Data di Database (MySQL)</h2>
+    <div id="databaseStatus"></div>
+    <button onclick="showDatabase()" class="btn-primary">Tampilkan Data Database</button>
+    <div id="databaseData"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Test Presensi Manual</h2>
+    <p>Tambahkan presensi test untuk memastikan sistem bekerja:</p>
+    <button onclick="testPresensi()" class="btn-primary">Tambah Presensi Test</button>
+    <div id="testResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>5. Bandingkan Data</h2>
+    <button onclick="compareData()" class="btn-primary">Bandingkan LocalStorage vs Database</button>
+    <div id="compareResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>6. Console Log</h2>
+    <p>Buka Developer Console (F12) untuk melihat log detail.</p>
+    <button onclick="clearConsole()">Bersihkan Console</button>
+    <button onclick="exportLog()">Export Log</button>
+    <pre id="logOutput">Log akan muncul di sini...</pre>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script>
+  let logMessages = [];
+
+  function log(msg, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMsg = `[${timestamp}] ${msg}`;
+    logMessages.push(logMsg);
+    
+    const logOutput = document.getElementById('logOutput');
+    logOutput.textContent = logMessages.join('\n');
+    logOutput.scrollTop = logOutput.scrollHeight;
+    
+    console.log(`[${type}]`, msg);
+  }
+
+  async function checkMode() {
+    const status = document.getElementById('modeStatus');
+    status.innerHTML = '<p>Memeriksa...</p>';
+    log('Memeriksa mode penyimpanan...');
+    
+    const mode = await init();
+    
+    if (mode === 'db') {
+      status.innerHTML = '<div class="status ok">✓ Mode: MySQL (Database)<br>Data tersimpan di database MySQL dan tersinkronisasi antar perangkat.</div>';
+      log('Mode: MySQL (Database)', 'success');
+    } else {
+      status.innerHTML = '<div class="status info">⚠ Mode: LocalStorage (Demo)<br>Data hanya tersimpan di browser ini. Jika browser di-clear atau dibuka dari perangkat lain, data tidak akan muncul.</div>';
+      log('Mode: LocalStorage (Demo)', 'warning');
+    }
+  }
+
+  function showLocalStorage() {
+    const status = document.getElementById('localStorageStatus');
+    const data = document.getElementById('localStorageData');
+    
+    const records = JSON.parse(localStorage.getItem('sipelok.records') || '[]');
+    const petugas = JSON.parse(localStorage.getItem('sipelok.petugas') || '[]');
+    const jadwal = JSON.parse(localStorage.getItem('sipelok.jadwal') || '[]');
+    
+    status.innerHTML = `<div class="status ok">✓ LocalStorage berisi:<br>
+      • ${records.length} records presensi<br>
+      • ${petugas.length} petugas<br>
+      • ${jadwal.length} jadwal</div>`;
+    
+    log(`LocalStorage: ${records.length} records, ${petugas.length} petugas, ${jadwal.length} jadwal`);
+    
+    // Tampilkan 5 records terakhir
+    const recentRecords = records.slice(0, 5);
+    let html = '<h3>5 Records Presensi Terakhir (LocalStorage):</h3><table><tr><th>ID</th><th>Tanggal</th><th>Shift</th><th>Nama</th><th>Masuk</th><th>Keluar</th><th>Foto</th></tr>';
+    recentRecords.forEach(r => {
+      html += `<tr>
+        <td>${r.id}</td>
+        <td>${r.date}</td>
+        <td>${r.shift}</td>
+        <td>${r.nama}</td>
+        <td>${r.masuk || '-'}</td>
+        <td>${r.keluar || '-'}</td>
+        <td>${r.fotoMasuk ? '✓' : '-'}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    
+    data.innerHTML = html;
+  }
+
+  async function showDatabase() {
+    const status = document.getElementById('databaseStatus');
+    const data = document.getElementById('databaseData');
+    
+    status.innerHTML = '<p>Memeriksa database...</p>';
+    log('Memeriksa database...');
+    
+    try {
+      const result = await http('bootstrap');
+      
+      if (result && result.ok) {
+        status.innerHTML = `<div class="status ok">✓ Database berisi:<br>
+          • ${result.records.length} records presensi<br>
+          • ${result.petugas.length} petugas<br>
+          • ${result.jadwal.length} jadwal</div>`;
+        
+        log(`Database: ${result.records.length} records, ${result.petugas.length} petugas, ${result.jadwal.length} jadwal`, 'success');
+        
+        // Tampilkan 5 records terakhir
+        const recentRecords = result.records.slice(0, 5);
+        let html = '<h3>5 Records Presensi Terakhir (Database):</h3><table><tr><th>ID</th><th>Tanggal</th><th>Shift</th><th>Nama</th><th>Masuk</th><th>Keluar</th><th>Foto</th></tr>';
+        recentRecords.forEach(r => {
+          html += `<tr>
+            <td>${r.id}</td>
+            <td>${r.date}</td>
+            <td>${r.shift}</td>
+            <td>${r.nama}</td>
+            <td>${r.masuk || '-'}</td>
+            <td>${r.keluar || '-'}</td>
+            <td>${r.fotoMasuk ? '✓' : '-'}</td>
+          </tr>`;
+        });
+        html += '</table>';
+        
+        data.innerHTML = html;
+      } else {
+        status.innerHTML = '<div class="status error">✗ Gagal mengambil data dari database<br>' + (result?.error || 'Unknown error') + '</div>';
+        log('Gagal mengambil data dari database: ' + (result?.error || 'Unknown error'), 'error');
+      }
+    } catch (e) {
+      status.innerHTML = '<div class="status error">✗ Error: ' + e.message + '<br>Pastikan server PHP dan MySQL berjalan.</div>';
+      log('Error: ' + e.message, 'error');
+    }
+  }
+
+  async function testPresensi() {
+    const result = document.getElementById('testResult');
+    result.innerHTML = '<p>Menambahkan presensi test...</p>';
+    log('Menambahkan presensi test...');
+    
+    try {
+      await init();
+      
+      if (S.petugas.length === 0) {
+        result.innerHTML = '<div class="status error">✗ Tidak ada petugas. Tambahkan petugas dulu di menu Admin.</div>';
+        log('Tidak ada petugas', 'error');
+        return;
+      }
+      
+      const petugas = S.petugas[0];
+      const shift = shiftForTime();
+      
+      result.innerHTML = '<p>Menambahkan presensi untuk: ' + petugas.nama + ' (Shift ' + shift + ')...</p>';
+      log('Menambahkan presensi untuk: ' + petugas.nama);
+      
+      // Progress callback
+      const onProgress = (progress) => {
+        log('Progress: ' + progress.percent + '% - ' + progress.status);
+        result.innerHTML = '<p>Progress: ' + progress.percent + '% - ' + progress.status + '</p>';
+      };
+      
+      const record = checkIn(petugas, shift, null, onProgress);
+      
+      // Tunggu sebentar untuk memastikan upload selesai
+      setTimeout(() => {
+        result.innerHTML = '<div class="status ok">✓ Presensi test berhasil ditambahkan!<br>' +
+          'ID: ' + record.id + '<br>' +
+          'Nama: ' + record.nama + '<br>' +
+          'Shift: ' + record.shift + '<br>' +
+          'Masuk: ' + record.masuk + '</div>' +
+          '<p><a href="admin.html">Lihat di Admin →</a></p>';
+        log('Presensi test berhasil: ' + record.id, 'success');
+      }, 3000);
+      
+    } catch (e) {
+      result.innerHTML = '<div class="status error">✗ Error: ' + e.message + '</div>';
+      log('Error: ' + e.message, 'error');
+    }
+  }
+
+  async function compareData() {
+    const result = document.getElementById('compareResult');
+    result.innerHTML = '<p>Membandingkan data...</p>';
+    log('Membandingkan data LocalStorage vs Database...');
+    
+    try {
+      // Ambil data dari localStorage
+      const localRecords = JSON.parse(localStorage.getItem('sipelok.records') || '[]');
+      const localIds = new Set(localRecords.map(r => r.id));
+      
+      // Ambil data dari database
+      const dbResult = await http('bootstrap');
+      if (!dbResult || !dbResult.ok) {
+        result.innerHTML = '<div class="status error">✗ Gagal mengambil data dari database</div>';
+        log('Gagal mengambil data dari database', 'error');
+        return;
+      }
+      
+      const dbRecords = dbResult.records || [];
+      const dbIds = new Set(dbRecords.map(r => r.id));
+      
+      // Bandingkan
+      const onlyInLocal = localRecords.filter(r => !dbIds.has(r.id));
+      const onlyInDb = dbRecords.filter(r => !localIds.has(r.id));
+      const inBoth = localRecords.filter(r => dbIds.has(r.id));
+      
+      let html = '<h3>Hasil Perbandingan:</h3>';
+      html += '<div class="status ' + (onlyInLocal.length === 0 && onlyInDb.length === 0 ? 'ok' : 'error') + '">';
+      html += '• Data di LocalStorage: ' + localRecords.length + ' records<br>';
+      html += '• Data di Database: ' + dbRecords.length + ' records<br>';
+      html += '• Data di kedua tempat: ' + inBoth.length + ' records<br>';
+      html += '• Hanya di LocalStorage: ' + onlyInLocal.length + ' records<br>';
+      html += '• Hanya di Database: ' + onlyInDb.length + ' records';
+      html += '</div>';
+      
+      if (onlyInLocal.length > 0) {
+        html += '<h3>Data yang HANYA ada di LocalStorage (belum tersinkron ke database):</h3>';
+        html += '<table><tr><th>ID</th><th>Tanggal</th><th>Nama</th><th>Masuk</th></tr>';
+        onlyInLocal.forEach(r => {
+          html += `<tr><td>${r.id}</td><td>${r.date}</td><td>${r.nama}</td><td>${r.masuk}</td></tr>`;
+        });
+        html += '</table>';
+        html += '<p class="status error">⚠ Data ini belum tersinkron ke database! Periksa koneksi server dan coba simpan ulang.</p>';
+      }
+      
+      if (onlyInDb.length > 0) {
+        html += '<h3>Data yang HANYA ada di Database (belum ada di LocalStorage):</h3>';
+        html += '<table><tr><th>ID</th><th>Tanggal</th><th>Nama</th><th>Masuk</th></tr>';
+        onlyInDb.forEach(r => {
+          html += `<tr><td>${r.id}</td><td>${r.date}</td><td>${r.nama}</td><td>${r.masuk}</td></tr>`;
+        });
+        html += '</table>';
+      }
+      
+      result.innerHTML = html;
+      log('Perbandingan selesai: ' + onlyInLocal.length + ' hanya di lokal, ' + onlyInDb.length + ' hanya di database');
+      
+    } catch (e) {
+      result.innerHTML = '<div class="status error">✗ Error: ' + e.message + '</div>';
+      log('Error: ' + e.message, 'error');
+    }
+  }
+
+  function clearConsole() {
+    console.clear();
+    logMessages = [];
+    document.getElementById('logOutput').textContent = 'Log telah dibersihkan';
+    log('Console dibersihkan');
+  }
+
+  function exportLog() {
+    const logText = logMessages.join('\n');
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sipelok-debug-log-' + new Date().toISOString().split('T')[0] + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    log('Log diekspor');
+  }
+
+  // Auto-check on load
+  window.onload = async () => {
+    log('Debug page loaded');
+    await checkMode();
+    showLocalStorage();
+  };
+</script>
+</body>
+</html>
