@@ -57,9 +57,12 @@ async function http(action, opts) {
   if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
   if (opts.id) url += "&id=" + encodeURIComponent(opts.id);
   const init = { method: opts.body ? "POST" : "GET", headers: {} };
+  
+  // Selalu kirim API key untuk semua request (GET dan POST)
+  init.headers["X-Sipelok-Key"] = API_KEY;
+  
   if (opts.body) {
     init.headers["Content-Type"] = "application/json";
-    init.headers["X-Sipelok-Key"] = API_KEY;
     init.body = JSON.stringify(opts.body);
     console.log("HTTP POST:", action, "Table:", opts.table, "Records:", opts.body.length);
   } else {
