@@ -4,9 +4,29 @@
    ============================================================ */
 "use strict";
 
-const API = "api/api.php";
+// Auto-detect API path berdasarkan lokasi halaman
+function getApiPath() {
+  const path = window.location.pathname;
+  
+  // Coba berbagai kemungkinan path
+  const possiblePaths = [
+    'api/api.php',           // Struktur standar
+    '../api/api.php',        // Jika di subfolder
+    '/api/api.php',          // Absolute path dari root
+    '/sipelok/api/api.php',  // Jika di subfolder sipelok
+  ];
+  
+  // Gunakan path relatif dari lokasi saat ini
+  // Jika halaman di /sipelok/presensi.html, API di /sipelok/api/api.php
+  const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+  return basePath + 'api/api.php';
+}
+
+const API = getApiPath();
 const API_KEY = "sipelok-konawe-2024";
 const ADMIN_SALT = "sipelokadmin";
+
+console.log("API Path:", API);
 
 const LS = {
   petugas: "sipelok.petugas", records: "sipelok.records", jadwal: "sipelok.jadwal",
@@ -68,8 +88,47 @@ async function http(action, opts) {
   } else {
     console.log("HTTP GET:", action);
   }
+  
+  console.log("Request URL:", url);
+  
   try {
     const r = await fetch(url, init);
+    
+    // Cek status HTTP
+    if (r.status === 404) {
+      const errorMsg = `File API tidak ditemukan (404). URL: ${url}\n\n` +
+        `Kemungkinan penyebab:\n` +
+        `1. File api/api.php tidak ada di server\n` +
+        `2. Struktur folder berbeda dari yang diharapkan\n` +
+        `3. Server menggunakan konfigurasi yang berbeda\n\n` +
+        `Solusi:\n` +
+        `- Pastikan folder 'api' ada di lokasi yang sama dengan file HTML\n` +
+        `- Periksa apakah file api.php ada di folder api/\n` +
+        `- Cek console browser untuk detail error`;
+      console.error("HTTP 404 Error:", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    if (r.status === 500) {
+      const errorMsg = `Server error (500). Periksa error log PHP di server.`;
+      console.error("HTTP 500 Error:", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    // Cek apakah response adalah JSON
+    const contentType = r.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await r.text();
+      const errorMsg = `Response bukan JSON. Content-Type: ${contentType}\n\n` +
+        `Response: ${text.substring(0, 200)}...\n\n` +
+        `Kemungkinan penyebab:\n` +
+        `1. File api.php mengembalikan HTML error page\n` +
+        `2. Ada error PHP yang tidak tertangkap\n` +
+        `3. File api.php tidak ada (404)`;
+      console.error("Non-JSON Response:", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     const data = await r.json();
     if (!data.ok) {
       console.error("HTTP Error:", action, data);
@@ -128,6 +187,42 @@ function httpWithProgress(action, opts, onProgress) {
         console.log("Status:", xhr.status);
         console.log("Response:", xhr.responseText);
         
+        // Cek 404 terlebih dahulu
+        if (xhr.status === 404) {
+          const errorMsg = `File API tidak ditemukan (404).\n\n` +
+            `URL: ${url}\n\n` +
+            `Kemungkinan penyebab:\n` +
+            `1. File api/api.php tidak ada di server\n` +
+            `2. Struktur folder berbeda dari yang diharapkan\n` +
+            `3. Server menggunakan konfigurasi yang berbeda\n\n` +
+            `Solusi:\n` +
+            `- Pastikan folder 'api' ada di lokasi yang sama dengan file HTML\n` +
+            `- Periksa apakah file api.php ada di folder api/\n` +
+            `- Cek console browser untuk detail error`;
+          
+          console.error("=== httpWithProgress 404 ERROR ===");
+          console.error(errorMsg);
+          
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ File API tidak ditemukan (404)", error: true });
+          }
+          reject(new Error(errorMsg));
+          return; // Jangan retry untuk 404
+        }
+        
+        // Cek 500 error
+        if (xhr.status === 500) {
+          const errorMsg = `Server error (500). Periksa error log PHP di server.`;
+          console.error("=== httpWithProgress 500 ERROR ===");
+          console.error(errorMsg);
+          
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ Server error (500)", error: true });
+          }
+          reject(new Error(errorMsg));
+          return; // Jangan retry untuk 500
+        }
+        
         try {
           const data = JSON.parse(xhr.responseText);
           console.log("Parsed data:", data);
@@ -165,6 +260,24 @@ function httpWithProgress(action, opts, onProgress) {
         } catch (e) {
           console.error("=== httpWithProgress PARSE ERROR ===", e);
           console.error("Response text:", xhr.responseText);
+          
+          // Cek apakah response adalah HTML error page
+          if (xhr.responseText.includes('<!DOCTYPE') || xhr.responseText.includes('<html')) {
+            const errorMsg = `Server mengembalikan HTML, bukan JSON.\n\n` +
+              `Ini biasanya berarti:\n` +
+              `1. File api.php tidak ada (404)\n` +
+              `2. Ada error PHP yang menampilkan HTML error page\n` +
+              `3. Server mengembalikan error page\n\n` +
+              `Response: ${xhr.responseText.substring(0, 200)}...`;
+            
+            console.error("HTML Response Error:", errorMsg);
+            
+            if (onProgress) {
+              onProgress({ percent: 100, status: "✗ Server error: File API tidak ditemukan", error: true });
+            }
+            reject(new Error(errorMsg));
+            return; // Jangan retry untuk HTML error
+          }
           
           // Retry jika parse error dan masih ada percobaan
           if (retryCount < MAX_RETRIES - 1) {
