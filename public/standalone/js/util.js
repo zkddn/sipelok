@@ -81,105 +81,175 @@ async function http(action, opts) {
   }
 }
 
-/* HTTP dengan progress tracking menggunakan XMLHttpRequest */
+/* HTTP dengan progress tracking menggunakan XMLHttpRequest + retry mechanism */
 function httpWithProgress(action, opts, onProgress) {
-  return new Promise((resolve, reject) => {
-    opts = opts || {};
-    
-    // Pastikan URL lengkap dengan origin
-    let url = API;
-    if (!url.startsWith('http')) {
-      url = location.origin + '/' + url;
-    }
-    url += "?action=" + encodeURIComponent(action);
-    if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
-    
-    console.log("=== httpWithProgress START ===");
-    console.log("URL:", url);
-    console.log("Action:", action);
-    console.log("Table:", opts.table);
-    console.log("Body size:", opts.body ? JSON.stringify(opts.body).length : 0, "bytes");
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("X-Sipelok-Key", API_KEY);
-    
-    // Track upload progress
-    xhr.upload.onprogress = function(e) {
-      if (e.lengthComputable && onProgress) {
-        const percent = Math.round((e.loaded / e.total) * 100);
-        console.log("Upload progress:", percent + "%", e.loaded + "/" + e.total);
-        onProgress({
-          percent: percent,
-          loaded: e.loaded,
-          total: e.total,
-          status: "Mengupload data... (" + percent + "%)"
-        });
-      }
-    };
-    
-    xhr.onload = function() {
-      console.log("=== httpWithProgress RESPONSE ===");
-      console.log("Status:", xhr.status);
-      console.log("Response:", xhr.responseText);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000; // 2 detik
+  
+  function attempt(retryCount) {
+    return new Promise((resolve, reject) => {
+      opts = opts || {};
       
-      try {
-        const data = JSON.parse(xhr.responseText);
-        console.log("Parsed data:", data);
+      // Pastikan URL lengkap dengan origin
+      let url = API;
+      if (!url.startsWith('http')) {
+        url = location.origin + '/' + url;
+      }
+      url += "?action=" + encodeURIComponent(action);
+      if (opts.table) url += "&table=" + encodeURIComponent(opts.table);
+      
+      console.log("=== httpWithProgress ATTEMPT", retryCount + 1, "/", MAX_RETRIES, "===");
+      console.log("URL:", url);
+      console.log("Action:", action);
+      console.log("Table:", opts.table);
+      console.log("Body size:", opts.body ? JSON.stringify(opts.body).length : 0, "bytes");
+      
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("X-Sipelok-Key", API_KEY);
+      
+      // Track upload progress
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable && onProgress) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          console.log("Upload progress:", percent + "%", e.loaded + "/" + e.total);
+          onProgress({
+            percent: percent,
+            loaded: e.loaded,
+            total: e.total,
+            status: "Mengupload data... (" + percent + "%)"
+          });
+        }
+      };
+      
+      xhr.onload = function() {
+        console.log("=== httpWithProgress RESPONSE ===");
+        console.log("Status:", xhr.status);
+        console.log("Response:", xhr.responseText);
         
-        if (xhr.status === 200 && data.ok) {
-          if (onProgress) {
-            onProgress({ percent: 100, status: "✓ Upload selesai!", success: true });
+        try {
+          const data = JSON.parse(xhr.responseText);
+          console.log("Parsed data:", data);
+          
+          if (xhr.status === 200 && data.ok) {
+            if (onProgress) {
+              onProgress({ percent: 100, status: "✓ Upload selesai!", success: true });
+            }
+            console.log("=== httpWithProgress SUCCESS ===");
+            resolve(data);
+          } else {
+            const errorMsg = data.error || "HTTP " + xhr.status + ": " + xhr.statusText;
+            console.error("=== httpWithProgress ERROR ===", errorMsg);
+            
+            // Retry jika ada error dan masih ada percobaan
+            if (retryCount < MAX_RETRIES - 1) {
+              console.log("Retrying in", RETRY_DELAY / 1000, "seconds...");
+              if (onProgress) {
+                onProgress({ 
+                  percent: 0, 
+                  status: "Gagal, mencoba ulang... (" + (retryCount + 1) + "/" + MAX_RETRIES + ")",
+                  retry: true
+                });
+              }
+              setTimeout(() => {
+                attempt(retryCount + 1).then(resolve).catch(reject);
+              }, RETRY_DELAY);
+            } else {
+              if (onProgress) {
+                onProgress({ percent: 100, status: "✗ " + errorMsg, error: true });
+              }
+              reject(new Error(errorMsg));
+            }
           }
-          console.log("=== httpWithProgress SUCCESS ===");
-          resolve(data);
-        } else {
-          const errorMsg = data.error || "HTTP " + xhr.status + ": " + xhr.statusText;
-          console.error("=== httpWithProgress ERROR ===", errorMsg);
-          if (onProgress) {
-            onProgress({ percent: 100, status: "✗ " + errorMsg, error: true });
+        } catch (e) {
+          console.error("=== httpWithProgress PARSE ERROR ===", e);
+          console.error("Response text:", xhr.responseText);
+          
+          // Retry jika parse error dan masih ada percobaan
+          if (retryCount < MAX_RETRIES - 1) {
+            console.log("Retrying in", RETRY_DELAY / 1000, "seconds...");
+            if (onProgress) {
+              onProgress({ 
+                percent: 0, 
+                status: "Parse error, mencoba ulang... (" + (retryCount + 1) + "/" + MAX_RETRIES + ")",
+                retry: true
+              });
+            }
+            setTimeout(() => {
+              attempt(retryCount + 1).then(resolve).catch(reject);
+            }, RETRY_DELAY);
+          } else {
+            if (onProgress) {
+              onProgress({ percent: 100, status: "✗ Parse error: " + e.message, error: true });
+            }
+            reject(e);
           }
-          reject(new Error(errorMsg));
         }
-      } catch (e) {
-        console.error("=== httpWithProgress PARSE ERROR ===", e);
-        console.error("Response text:", xhr.responseText);
-        if (onProgress) {
-          onProgress({ percent: 100, status: "✗ Parse error: " + e.message, error: true });
-        }
-        reject(e);
-      }
-    };
-    
-    xhr.onerror = function() {
-      console.error("=== httpWithProgress NETWORK ERROR ===");
-      console.error("URL:", url);
-      console.error("ReadyState:", xhr.readyState);
-      console.error("Status:", xhr.status);
+      };
       
-      if (onProgress) {
-        onProgress({ percent: 100, status: "✗ Network error", error: true });
+      xhr.onerror = function() {
+        console.error("=== httpWithProgress NETWORK ERROR ===");
+        console.error("URL:", url);
+        console.error("ReadyState:", xhr.readyState);
+        console.error("Status:", xhr.status);
+        
+        // Retry jika network error dan masih ada percobaan
+        if (retryCount < MAX_RETRIES - 1) {
+          console.log("Retrying in", RETRY_DELAY / 1000, "seconds...");
+          if (onProgress) {
+            onProgress({ 
+              percent: 0, 
+              status: "Network error, mencoba ulang... (" + (retryCount + 1) + "/" + MAX_RETRIES + ")",
+              retry: true
+            });
+          }
+          setTimeout(() => {
+            attempt(retryCount + 1).then(resolve).catch(reject);
+          }, RETRY_DELAY);
+        } else {
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ Network error - tidak dapat terhubung ke server", error: true });
+          }
+          reject(new Error("Network error - tidak dapat terhubung ke server"));
+        }
+      };
+      
+      xhr.ontimeout = function() {
+        console.error("=== httpWithProgress TIMEOUT ===");
+        
+        // Retry jika timeout dan masih ada percobaan
+        if (retryCount < MAX_RETRIES - 1) {
+          console.log("Retrying in", RETRY_DELAY / 1000, "seconds...");
+          if (onProgress) {
+            onProgress({ 
+              percent: 0, 
+              status: "Timeout, mencoba ulang... (" + (retryCount + 1) + "/" + MAX_RETRIES + ")",
+              retry: true
+            });
+          }
+          setTimeout(() => {
+            attempt(retryCount + 1).then(resolve).catch(reject);
+          }, RETRY_DELAY);
+        } else {
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ Timeout - server tidak merespons", error: true });
+          }
+          reject(new Error("Request timeout"));
+        }
+      };
+      
+      if (opts.body) {
+        console.log("Sending data...");
+        xhr.timeout = 15000; // Kurangi timeout dari 30 detik ke 15 detik
+        xhr.send(JSON.stringify(opts.body));
+      } else {
+        reject(new Error("No body to send"));
       }
-      reject(new Error("Network error - tidak dapat terhubung ke server"));
-    };
-    
-    xhr.ontimeout = function() {
-      console.error("=== httpWithProgress TIMEOUT ===");
-      if (onProgress) {
-        onProgress({ percent: 100, status: "✗ Timeout", error: true });
-      }
-      reject(new Error("Request timeout"));
-    };
-    
-    if (opts.body) {
-      console.log("Sending data...");
-      xhr.timeout = 30000; // 30 detik timeout
-      xhr.send(JSON.stringify(opts.body));
-    } else {
-      reject(new Error("No body to send"));
-    }
-  });
+    });
+  }
+  
+  return attempt(0);
 }
 
 /* ---------------- deteksi mode & bootstrap ---------------- */
@@ -776,18 +846,53 @@ async function copyText(t) { try { await navigator.clipboard.writeText(t); retur
 function kecilkanFoto(file, done) {
   const img = new Image();
   const url = URL.createObjectURL(file);
+  
+  // Timeout untuk mencegah stuck
+  const timeout = setTimeout(() => {
+    console.error("kecilkanFoto timeout");
+    URL.revokeObjectURL(url);
+    done(null);
+  }, 10000); // 10 detik timeout
+  
   img.onload = () => {
+    clearTimeout(timeout);
     try {
-      const max = 720, sc = Math.min(1, max / Math.max(img.width, img.height));
+      // Kurangi ukuran lebih agresif untuk HP dengan koneksi lambat
+      const max = 480; // dari 720 ke 480
+      const sc = Math.min(1, max / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(img.width * sc));
       c.height = Math.max(1, Math.round(img.height * sc));
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      
+      const ctx = c.getContext("2d");
+      if (!ctx) {
+        console.error("Canvas context not available");
+        URL.revokeObjectURL(url);
+        done(null);
+        return;
+      }
+      
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      done(c.toDataURL("image/jpeg", 0.72));
-    } catch (e) { URL.revokeObjectURL(url); done(null); }
+      
+      // Kurangi kualitas untuk mengurangi ukuran file
+      const dataUrl = c.toDataURL("image/jpeg", 0.6); // dari 0.72 ke 0.6
+      console.log("Foto dikompresi:", (file.size / 1024).toFixed(1), "KB →", (dataUrl.length * 0.75 / 1024).toFixed(1), "KB");
+      done(dataUrl);
+    } catch (e) { 
+      console.error("kecilkanFoto error:", e);
+      URL.revokeObjectURL(url); 
+      done(null); 
+    }
   };
-  img.onerror = () => { URL.revokeObjectURL(url); done(null); };
+  
+  img.onerror = (e) => { 
+    clearTimeout(timeout);
+    console.error("kecilkanFoto img.onerror:", e);
+    URL.revokeObjectURL(url); 
+    done(null); 
+  };
+  
   img.src = url;
 }
 

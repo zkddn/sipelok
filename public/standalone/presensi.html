@@ -258,15 +258,37 @@
       el("#pratinjau").classList.add("hidden"); el("#aksiFoto").classList.add("hidden");
     };
 
-    el("#kirim").onclick = () => {
+    el("#kirim").onclick = async () => {
       const pid = namaSel.value;
       const sh = shiftAktif();
       const jenis = jenisAktif();
       const pesan = el("#pesan");
+      
+      // Validasi dasar
       if (!pid) { pesan.textContent = "Pilih nama Anda terlebih dahulu."; return; }
       if (!sh) { pesan.textContent = "Pilih shift (Pagi atau Siang)."; return; }
       if (!jenis) { pesan.textContent = "Pilih jenis presensi (Masuk atau Pulang)."; return; }
+      
       const petugas = S.petugas.find((p) => p.id === pid);
+      
+      // Validasi khusus untuk presensi masuk
+      if (jenis === "masuk") {
+        if (!foto) { 
+          pesan.textContent = "Foto atribut wajib saat presensi masuk.";
+          return; 
+        }
+        if (findRecord(t, sh, pid)) { 
+          pesan.textContent = "Anda sudah memiliki catatan masuk pada shift ini.";
+          return; 
+        }
+      } else {
+        // Validasi untuk presensi pulang
+        const terbuka = findOpenRecord(t, sh, pid);
+        if (!terbuka) { 
+          pesan.textContent = "Belum ada presensi masuk untuk dipulangkan. Pilih jenis Masuk.";
+          return; 
+        }
+      }
 
       // Tampilkan progress container
       const progressContainer = el("#progressContainer");
@@ -277,7 +299,7 @@
       progressContainer.classList.remove("hidden");
       progressBar.style.width = "0%";
       progressBar.textContent = "0%";
-      progressStatus.textContent = "Mempersimpan data presensi...";
+      progressStatus.textContent = "Memeriksa koneksi...";
       progressStatus.className = "progress-status";
       progressDetail.textContent = "";
       
@@ -285,6 +307,24 @@
       const tombolKirim = el("#kirim");
       tombolKirim.disabled = true;
       tombolKirim.textContent = "Menyimpan...";
+      
+      // Cek koneksi ke server terlebih dahulu
+      try {
+        progressStatus.textContent = "Memeriksa koneksi ke server...";
+        const pingResult = await http("ping");
+        if (!pingResult || !pingResult.ok) {
+          throw new Error("Server tidak merespons");
+        }
+        console.log("✓ Koneksi ke server OK");
+      } catch (e) {
+        console.error("Koneksi ke server gagal:", e);
+        progressStatus.textContent = "✗ Tidak dapat terhubung ke server";
+        progressStatus.className = "progress-status upload-error";
+        progressDetail.textContent = "Periksa koneksi internet Anda dan coba lagi.";
+        tombolKirim.disabled = false;
+        tombolKirim.textContent = "Coba Lagi";
+        return;
+      }
 
       // Progress callback
       const onProgress = (progress) => {
@@ -298,10 +338,14 @@
           progressDetail.textContent = "Upload: " + loadedKB + " KB / " + totalKB + " KB";
         }
         
-        if (progress.error) {
+        if (progress.retry) {
+          progressStatus.className = "progress-status";
+          progressDetail.textContent = "Mencoba ulang... Mohon tunggu.";
+        } else if (progress.error) {
           progressStatus.className = "progress-status upload-error";
           tombolKirim.disabled = false;
-          tombolKirim.textContent = "Simpan Presensi";
+          tombolKirim.textContent = "Coba Lagi";
+          progressDetail.textContent = "Periksa koneksi internet Anda atau coba lagi nanti.";
         } else if (progress.success) {
           progressStatus.className = "progress-status upload-success";
           // Tunggu sebentar sebelum tampilkan hasil
@@ -319,34 +363,23 @@
         }
       };
 
-      if (jenis === "masuk") {
-        if (!foto) { 
-          pesan.textContent = "Foto atribut wajib saat presensi masuk.";
-          progressContainer.classList.add("hidden");
-          tombolKirim.disabled = false;
-          tombolKirim.textContent = "Simpan Presensi";
-          return; 
+      // Kirim data presensi
+      try {
+        progressStatus.textContent = "Mengirim data presensi...";
+        
+        if (jenis === "masuk") {
+          checkIn(petugas, sh, foto, onProgress);
+        } else {
+          const terbuka = findOpenRecord(t, sh, pid);
+          checkOut(terbuka, foto, onProgress);
         }
-        if (findRecord(t, sh, pid)) { 
-          pesan.textContent = "Anda sudah memiliki catatan masuk pada shift ini.";
-          progressContainer.classList.add("hidden");
-          tombolKirim.disabled = false;
-          tombolKirim.textContent = "Simpan Presensi";
-          return; 
-        }
-        // Panggil checkIn dengan progress callback
-        checkIn(petugas, sh, foto, onProgress);
-      } else {
-        const terbuka = findOpenRecord(t, sh, pid);
-        if (!terbuka) { 
-          pesan.textContent = "Belum ada presensi masuk untuk dipulangkan. Pilih jenis Masuk.";
-          progressContainer.classList.add("hidden");
-          tombolKirim.disabled = false;
-          tombolKirim.textContent = "Simpan Presensi";
-          return; 
-        }
-        // Panggil checkOut dengan progress callback
-        checkOut(terbuka, foto, onProgress);
+      } catch (e) {
+        console.error("Error saat mengirim presensi:", e);
+        progressStatus.textContent = "✗ Error: " + e.message;
+        progressStatus.className = "progress-status upload-error";
+        progressDetail.textContent = "Silakan coba lagi.";
+        tombolKirim.disabled = false;
+        tombolKirim.textContent = "Coba Lagi";
       }
     };
   }
