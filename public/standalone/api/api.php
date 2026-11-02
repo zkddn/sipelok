@@ -186,35 +186,80 @@ try {
         $db->beginTransaction();
 
         if ($table === 'petugas') {
-          $up = $db->prepare('UPDATE petugas SET nama=?, nip=? WHERE id=?');
-          $in = $db->prepare('INSERT INTO petugas (id, nama, nip) VALUES (?,?,?)');
-          foreach ($rows as $r) {
-            $up->execute([$r['nama'] ?? '', $r['nip'] ?? null, $r['id'] ?? '']);
-            if ($up->rowCount() === 0) $in->execute([$r['id'] ?? '', $r['nama'] ?? '', $r['nip'] ?? null]);
-          }
-        } elseif ($table === 'records') {
-          $up = $db->prepare('UPDATE presensi SET tanggal=?, shift=?, petugas_id=?, nama=?, masuk=?, keluar=?, foto_masuk=?, foto_keluar=? WHERE id=?');
-          $in = $db->prepare('INSERT INTO presensi (id, tanggal, shift, petugas_id, nama, masuk, keluar, foto_masuk, foto_keluar) VALUES (?,?,?,?,?,?,?,?,?)');
-          $saved = 0;
+          // Gunakan INSERT ... ON DUPLICATE KEY UPDATE untuk menghindari duplicate entry error
+          $upsert = $db->prepare('
+            INSERT INTO petugas (id, nama, nip) 
+            VALUES (?,?,?) 
+            ON DUPLICATE KEY UPDATE nama=VALUES(nama), nip=VALUES(nip)
+          ');
           foreach ($rows as $r) {
             $id = (string) ($r['id'] ?? '');
-            if ($id === '') continue;
-            $v = [
-              $r['date'] ?? null, (int) ($r['shift'] ?? 1), $r['petugasId'] ?? '', $r['nama'] ?? '',
-              to_dt($r['masuk'] ?? null), to_dt($r['keluar'] ?? null),
-              simpan_foto($r['fotoMasuk'] ?? null, $id, 'masuk'),
-              simpan_foto($r['fotoKeluar'] ?? null, $id, 'keluar'),
-            ];
-            $up->execute(array_merge($v, [$id]));
-            if ($up->rowCount() === 0) {
-              $in->execute(array_merge([$id], $v));
-              error_log("SIPELOK: Inserted new record ID: $id");
-            } else {
-              error_log("SIPELOK: Updated existing record ID: $id");
-            }
-            $saved++;
+            if (empty($id)) continue;
+            $upsert->execute([$id, $r['nama'] ?? '', $r['nip'] ?? null]);
           }
-          error_log("SIPELOK: Successfully saved $saved records");
+        } elseif ($table === 'records') {
+          error_log("SIPELOK: Processing " . count($rows) . " records rows");
+          
+          // Gunakan INSERT ... ON DUPLICATE KEY UPDATE untuk menghindari duplicate entry error
+          $upsert = $db->prepare('
+            INSERT INTO presensi (id, tanggal, shift, petugas_id, nama, masuk, keluar, foto_masuk, foto_keluar) 
+            VALUES (?,?,?,?,?,?,?,?,?) 
+            ON DUPLICATE KEY UPDATE 
+              tanggal=VALUES(tanggal),
+              shift=VALUES(shift),
+              petugas_id=VALUES(petugas_id),
+              nama=VALUES(nama),
+              masuk=VALUES(masuk),
+              keluar=VALUES(keluar),
+              foto_masuk=VALUES(foto_masuk),
+              foto_keluar=VALUES(foto_keluar)
+          ');
+          
+          $updated = 0;
+          $inserted = 0;
+          $errors = 0;
+          
+          foreach ($rows as $index => $r) {
+            try {
+              $id = (string) ($r['id'] ?? '');
+              if (empty($id)) {
+                error_log("SIPELOK: Skipping record with empty ID at index $index");
+                $errors++;
+                continue;
+              }
+              
+              $v = [
+                $id,
+                $r['date'] ?? null, 
+                (int) ($r['shift'] ?? 1), 
+                $r['petugasId'] ?? '', 
+                $r['nama'] ?? '',
+                to_dt($r['masuk'] ?? null), 
+                to_dt($r['keluar'] ?? null),
+                simpan_foto($r['fotoMasuk'] ?? null, $id, 'masuk'),
+                simpan_foto($r['fotoKeluar'] ?? null, $id, 'keluar'),
+              ];
+              
+              $upsert->execute($v);
+              
+              // rowCount() returns 1 for insert, 2 for update (MySQL specific)
+              $rowCount = $upsert->rowCount();
+              if ($rowCount === 2) {
+                $updated++;
+                error_log("SIPELOK: Updated existing record ID: $id");
+              } else {
+                $inserted++;
+                if ($inserted <= 5 || $inserted % 50 === 0) {
+                  error_log("SIPELOK: Inserted new record ID: $id");
+                }
+              }
+            } catch (Exception $e) {
+              error_log("SIPELOK: Error processing record row $index: " . $e->getMessage());
+              $errors++;
+            }
+          }
+          
+          error_log("SIPELOK: Records processing complete - Updated: $updated, Inserted: $inserted, Errors: $errors");
         } elseif ($table === 'jadwal') {
           error_log("SIPELOK: Processing " . count($rows) . " jadwal rows");
           

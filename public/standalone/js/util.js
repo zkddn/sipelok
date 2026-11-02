@@ -22,13 +22,18 @@ const listeners = [];
 /* ---------------- dasar ---------------- */
 let uidCounter = 0;
 function uid() { 
-  // Gunakan crypto.randomUUID() jika tersedia, fallback ke kombinasi timestamp + counter + random
+  // Gunakan crypto.randomUUID() jika tersedia (paling unik)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    return crypto.randomUUID().replace(/-/g, '');
   }
   // Fallback: timestamp + counter + random untuk memastikan unik
   uidCounter++;
-  return Date.now().toString(36) + '-' + uidCounter.toString(36) + '-' + Math.random().toString(36).slice(2, 11);
+  const timestamp = Date.now().toString(36);
+  const counter = uidCounter.toString(36);
+  const random = Math.random().toString(36).slice(2, 11);
+  const uniqueId = `${timestamp}-${counter}-${random}`;
+  console.log("Generated UID:", uniqueId);
+  return uniqueId;
 }
 function onChange(fn) { listeners.push(fn); }
 function emit() { listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); }

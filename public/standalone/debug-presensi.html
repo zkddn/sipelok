@@ -210,15 +210,34 @@
       
       const record = checkIn(petugas, shift, null, onProgress);
       
+      log('Record created with ID: ' + record.id);
+      
       // Tunggu sebentar untuk memastikan upload selesai
-      setTimeout(() => {
-        result.innerHTML = '<div class="status ok">✓ Presensi test berhasil ditambahkan!<br>' +
-          'ID: ' + record.id + '<br>' +
-          'Nama: ' + record.nama + '<br>' +
-          'Shift: ' + record.shift + '<br>' +
-          'Masuk: ' + record.masuk + '</div>' +
-          '<p><a href="admin.html">Lihat di Admin →</a></p>';
-        log('Presensi test berhasil: ' + record.id, 'success');
+      setTimeout(async () => {
+        // Verifikasi apakah record berhasil disimpan ke database
+        try {
+          const dbResult = await http('bootstrap');
+          if (dbResult && dbResult.ok) {
+            const found = dbResult.records.find(r => r.id === record.id);
+            if (found) {
+              result.innerHTML = '<div class="status ok">✓ Presensi test berhasil ditambahkan!<br>' +
+                'ID: ' + record.id + '<br>' +
+                'Nama: ' + record.nama + '<br>' +
+                'Shift: ' + record.shift + '<br>' +
+                'Masuk: ' + record.masuk + '<br>' +
+                '<strong>✓ Tersimpan di database</strong></div>' +
+                '<p><a href="admin.html">Lihat di Admin →</a></p>';
+              log('Presensi test berhasil dan tersimpan di database: ' + record.id, 'success');
+            } else {
+              result.innerHTML = '<div class="status error">✗ Presensi test dibuat tapi TIDAK tersimpan di database!<br>' +
+                'ID: ' + record.id + '<br>' +
+                'Periksa console browser (F12) untuk detail error.</div>';
+              log('Presensi test TIDAK tersimpan di database: ' + record.id, 'error');
+            }
+          }
+        } catch (e) {
+          log('Error verifikasi database: ' + e.message, 'error');
+        }
       }, 3000);
       
     } catch (e) {
