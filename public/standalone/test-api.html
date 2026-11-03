@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Koneksi API - SIPELOK</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #2196F3;
+      padding-bottom: 10px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      color: #2196F3;
+    }
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #1976D2;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .result.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .result.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .result.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .info-box {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 15px 0;
+    }
+    .info-box strong {
+      color: #856404;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .status-indicator.success {
+      background: #28a745;
+    }
+    .status-indicator.error {
+      background: #dc3545;
+    }
+    .status-indicator.pending {
+      background: #ffc107;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Test Koneksi API - SIPELOK</h1>
+    
+    <div class="info-box">
+      <strong>ℹ️ Informasi:</strong> Halaman ini akan membantu Anda mendiagnosis masalah koneksi ke API. 
+      Gunakan untuk memeriksa apakah file <code>api.php</code> dapat diakses dengan benar.
+    </div>
+
+    <div class="test-section">
+      <h2>1. Informasi Sistem</h2>
+      <div id="systemInfo" class="result info">Memuat informasi sistem...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>2. Test Koneksi Ping</h2>
+      <p>Test apakah API dapat diakses dengan action <code>ping</code></p>
+      <button onclick="testPing()" id="btnPing">Test Ping</button>
+      <div id="pingResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>3. Test Bootstrap Data</h2>
+      <p>Test apakah API dapat mengambil data dengan action <code>bootstrap</code></p>
+      <button onclick="testBootstrap()" id="btnBootstrap">Test Bootstrap</button>
+      <div id="bootstrapResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>4. Test Akses Langsung</h2>
+      <p>Buka URL API langsung di browser untuk melihat response mentah</p>
+      <button onclick="openDirectAccess()" id="btnDirect">Buka URL API</button>
+      <div id="directResult" class="result info"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>5. Diagnostik Lengkap</h2>
+      <p>Jalankan semua test sekaligus untuk diagnostik lengkap</p>
+      <button onclick="runFullDiagnostic()" id="btnFull">Jalankan Diagnostik Lengkap</button>
+      <div id="fullResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-detect API path
+    function getApiPath() {
+      const path = window.location.pathname;
+      const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+      return basePath + 'api/api.php';
+    }
+
+    const API = getApiPath();
+    const API_KEY = "sipelok-konawe-2024";
+
+    // Display system info
+    function displaySystemInfo() {
+      const info = {
+        'URL Halaman': window.location.href,
+        'Path Halaman': window.location.pathname,
+        'API Path (Auto-Detect)': API,
+        'API URL Lengkap': window.location.origin + API,
+        'Protocol': window.location.protocol,
+        'Host': window.location.host,
+        'User Agent': navigator.userAgent.substring(0, 100) + '...'
+      };
+
+      let html = '<strong>Informasi Sistem:</strong>\n\n';
+      for (const [key, value] of Object.entries(info)) {
+        html += `${key}: ${value}\n`;
+      }
+      
+      document.getElementById('systemInfo').textContent = html;
+    }
+
+    // Test ping
+    async function testPing() {
+      const btn = document.getElementById('btnPing');
+      const resultDiv = document.getElementById('pingResult');
+      
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      resultDiv.innerHTML = '<div class="result info"><span class="status-indicator pending"></span>Melakukan test ping...</div>';
+
+      try {
+        const url = API + '?action=ping';
+        console.log('Testing URL:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'X-Sipelok-Key': API_KEY
+          }
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+
+        if (response.status === 404) {
+          throw new Error('File API tidak ditemukan (404). URL: ' + url);
+        }
+
+        if (response.status === 500) {
+          throw new Error('Server error (500). Periksa error log PHP.');
+        }
+
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          throw new Error('Response bukan JSON. Content-Type: ' + contentType + '\n\nResponse: ' + text.substring(0, 500));
+        }
+
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (data.ok) {
+          resultDiv.innerHTML = `
+            <div class="result success">
+              <span class="status-indicator success"></span><strong>✓ PING BERHASIL</strong>\n\n
+              URL: ${url}\n
+              Status: ${response.status} ${response.statusText}\n
+              Content-Type: ${contentType}\n\n
+              Response:\n${JSON.stringify(data, null, 2)}
+            </div>
+          `;
+        } else {
+          throw new Error('API mengembalikan error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Ping test error:', error);
+        resultDiv.innerHTML = `
+          <div class="result error">
+            <span class="status-indicator error"></span><strong>✗ PING GAGAL</strong>\n\n
+            Error: ${error.message}\n\n
+            <strong>Kemungkinan penyebab:</strong>\n
+            1. File api/api.php tidak ada di server\n
+            2. Struktur folder berbeda dari yang diharapkan\n
+            3. Permission file salah\n
+            4. Server menggunakan konfigurasi yang berbeda\n\n
+            <strong>Solusi:</strong>\n
+            - Pastikan folder 'api' ada di lokasi yang sama dengan file HTML\n
+            - Periksa apakah file api.php ada di folder api/\n
+            - Cek permission file (644 untuk file, 755 untuk folder)\n
+            - Lihat console browser (F12) untuk detail error
+          </div>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Test Ping';
+      }
+    }
+
+    // Test bootstrap
+    async function testBootstrap() {
+      const btn = document.getElementById('btnBootstrap');
+      const resultDiv = document.getElementById('bootstrapResult');
+      
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      resultDiv.innerHTML = '<div class="result info"><span class="status-indicator pending"></span>Melakukan test bootstrap...</div>';
+
+      try {
+        const url = API + '?action=bootstrap';
+        console.log('Testing URL:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'X-Sipelok-Key': API_KEY
+          }
+        });
+
+        if (response.status === 404) {
+          throw new Error('File API tidak ditemukan (404)');
+        }
+
+        const data = await response.json();
+
+        if (data.ok) {
+          const summary = {
+            'Petugas': data.petugas ? data.petugas.length : 0,
+            'Records': data.records ? data.records.length : 0,
+            'Jadwal': data.jadwal ? data.jadwal.length : 0,
+            'Accounts': data.accounts ? data.accounts.length : 0
+          };
+
+          resultDiv.innerHTML = `
+            <div class="result success">
+              <span class="status-indicator success"></span><strong>✓ BOOTSTRAP BERHASIL</strong>\n\n
+              URL: ${url}\n
+              Status: ${response.status} ${response.statusText}\n\n
+              <strong>Summary Data:</strong>\n
+              ${Object.entries(summary).map(([k, v]) => `${k}: ${v} records`).join('\n')}\n\n
+              <strong>Sample Data (first record):</strong>\n
+              ${JSON.stringify(data.records ? data.records[0] : null, null, 2)}
+            </div>
+          `;
+        } else {
+          throw new Error('API mengembalikan error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Bootstrap test error:', error);
+        resultDiv.innerHTML = `
+          <div class="result error">
+            <span class="status-indicator error"></span><strong>✗ BOOTSTRAP GAGAL</strong>\n\n
+            Error: ${error.message}\n\n
+            <strong>Kemungkinan penyebab:</strong>\n
+            1. Database MySQL tidak berjalan\n
+            2. Database 'sipelok' belum dibuat\n
+            3. Tabel belum diimpor\n
+            4. Kredensial database salah di config.php\n\n
+            <strong>Solusi:</strong>\n
+            - Periksa apakah MySQL berjalan di XAMPP Control Panel\n
+            - Import database/sipelok.sql via phpMyAdmin\n
+            - Periksa kredensial di api/config.php
+          </div>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Test Bootstrap';
+      }
+    }
+
+    // Open direct access
+    function openDirectAccess() {
+      const url = API + '?action=ping';
+      const resultDiv = document.getElementById('directResult');
+      
+      resultDiv.innerHTML = `
+        <div class="result info">
+          <strong>URL API:</strong>\n
+          <a href="${url}" target="_blank">${url}</a>\n\n
+          <strong>Instruksi:</strong>\n
+          1. Klik link di atas untuk membuka URL API di tab baru\n
+          2. Jika muncul JSON response → API berfungsi normal\n
+          3. Jika muncul HTML 404 → File api.php tidak ada\n
+          4. Jika muncul HTML error → Ada error PHP
+        </div>
+      `;
+      
+      window.open(url, '_blank');
+    }
+
+    // Full diagnostic
+    async function runFullDiagnostic() {
+      const btn = document.getElementById('btnFull');
+      const resultDiv = document.getElementById('fullResult');
+      
+      btn.disabled = true;
+      btn.textContent = 'Running diagnostic...';
+      resultDiv.innerHTML = '<div class="result info"><span class="status-indicator pending"></span>Menjalankan diagnostik lengkap...</div>';
+
+      const results = [];
+
+      // Test 1: Check file existence
+      results.push('<strong>Test 1: File Existence Check</strong>');
+      try {
+        const response = await fetch(API + '?action=ping', { method: 'HEAD' });
+        if (response.status === 404) {
+          results.push('<span class="status-indicator error"></span> ✗ File api.php TIDAK DITEMUKAN (404)');
+          results.push('   → Pastikan folder api/ dan file api.php ada');
+        } else if (response.status === 200) {
+          results.push('<span class="status-indicator success"></span> ✓ File api.php ADA');
+        } else {
+          results.push(`<span class="status-indicator pending"></span> ? Status: ${response.status}`);
+        }
+      } catch (e) {
+        results.push(`<span class="status-indicator error"></span> ✗ Error: ${e.message}`);
+      }
+      results.push('');
+
+      // Test 2: Ping test
+      results.push('<strong>Test 2: Ping Test</strong>');
+      try {
+        const response = await fetch(API + '?action=ping');
+        const data = await response.json();
+        if (data.ok) {
+          results.push('<span class="status-indicator success"></span> ✓ Ping BERHASIL');
+          results.push(`   → Database: ${data.db || 'N/A'}`);
+          results.push(`   → Version: ${data.version || 'N/A'}`);
+        } else {
+          results.push('<span class="status-indicator error"></span> ✗ Ping GAGAL');
+          results.push(`   → Error: ${data.error || 'Unknown'}`);
+        }
+      } catch (e) {
+        results.push(`<span class="status-indicator error"></span> ✗ Error: ${e.message}`);
+      }
+      results.push('');
+
+      // Test 3: Bootstrap test
+      results.push('<strong>Test 3: Bootstrap Test</strong>');
+      try {
+        const response = await fetch(API + '?action=bootstrap');
+        const data = await response.json();
+        if (data.ok) {
+          results.push('<span class="status-indicator success"></span> ✓ Bootstrap BERHASIL');
+          results.push(`   → Petugas: ${data.petugas ? data.petugas.length : 0}`);
+          results.push(`   → Records: ${data.records ? data.records.length : 0}`);
+          results.push(`   → Jadwal: ${data.jadwal ? data.jadwal.length : 0}`);
+        } else {
+          results.push('<span class="status-indicator error"></span> ✗ Bootstrap GAGAL');
+          results.push(`   → Error: ${data.error || 'Unknown'}`);
+        }
+      } catch (e) {
+        results.push(`<span class="status-indicator error"></span> ✗ Error: ${e.message}`);
+      }
+      results.push('');
+
+      // Test 4: Check API key
+      results.push('<strong>Test 4: API Key Check</strong>');
+      try {
+        const response = await fetch(API + '?action=ping', {
+          headers: { 'X-Sipelok-Key': 'wrong-key' }
+        });
+        const data = await response.json();
+        if (!data.ok && data.error && data.error.includes('Kunci API')) {
+          results.push('<span class="status-indicator success"></span> ✓ API Key validation BERFUNGSI');
+        } else {
+          results.push('<span class="status-indicator pending"></span> ? API Key validation tidak merespons');
+        }
+      } catch (e) {
+        results.push(`<span class="status-indicator error"></span> ✗ Error: ${e.message}`);
+      }
+      results.push('');
+
+      // Summary
+      results.push('<strong>═══════════════════════════════════</strong>');
+      results.push('<strong>SUMMARY</strong>');
+      results.push('<strong>═══════════════════════════════════</strong>');
+      results.push(`API Path: ${API}`);
+      results.push(`Full URL: ${window.location.origin + API}`);
+      results.push('');
+      results.push('<strong>Jika semua test GAGAL:</strong>');
+      results.push('1. Pastikan folder api/ ada di lokasi yang sama dengan file HTML');
+      results.push('2. Pastikan file api.php ada di folder api/');
+      results.push('3. Periksa permission file (644 untuk file, 755 untuk folder)');
+      results.push('4. Lihat console browser (F12) untuk detail error');
+      results.push('');
+      results.push('<strong>Jika hanya Bootstrap GAGAL:</strong>');
+      results.push('1. Periksa apakah MySQL berjalan');
+      results.push('2. Import database/sipelok.sql via phpMyAdmin');
+      results.push('3. Periksa kredensial di api/config.php');
+
+      resultDiv.innerHTML = `<div class="result info">${results.join('\n')}</div>`;
+      
+      btn.disabled = false;
+      btn.textContent = 'Jalankan Diagnostik Lengkap';
+    }
+
+    // Initialize
+    displaySystemInfo();
+  </script>
+</body>
+</html>

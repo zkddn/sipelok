@@ -15,17 +15,17 @@ const LOKET = [
   {
     kelas: "a",
     plat: "A",
-    href: "standalone/index.html",
-    judul: "Beranda & Hub",
-    desc: "Papan utama: jam hidup, petugas piket hari ini, dan status koneksi database.",
+    href: "standalone/loket.html",
+    judul: "Layar Utama · PC Front Office",
+    desc: "Menampilkan daftar petugas piket hari ini & status presensi.",
     tag: null as string | null,
   },
   {
     kelas: "b",
     plat: "B",
-    href: "standalone/loket.html",
-    judul: "Layar Loket · PC Front Office",
-    desc: "QR besar untuk discan petugas + feed presensi yang muncul seketika.",
+    href: "standalone/presensi.html",
+    judul: "Presensi · HP Petugas",
+    desc: "Catat jam masuk/pulang + foto atribut. Shift terdeteksi otomatis.",
     tag: null as string | null,
   },
   {
@@ -33,7 +33,7 @@ const LOKET = [
     plat: "C",
     href: "standalone/admin.html",
     judul: "Admin & Rekap",
-    desc: "Rekap presensi, jadwal piket mingguan, kelola petugas dan akun.",
+    desc: "Rekap presensi, jadwal piket bulanan, kelola petugas dan akun.",
     tag: "admin / bpskonawe",
   },
 ];
@@ -43,7 +43,7 @@ const TICKER = [
   "Pojok Statistik buka setiap hari kerja",
   "Petugas piket wajib melengkapi atribut: rompi & name tag",
   "Satu hari dua shift — Pagi 08.00–12.00 · Siang 12.00–16.00",
-  "Scan QR di layar loket untuk presensi bertugas",
+  "Presensi petugas via presensi.html dengan foto atribut",
 ];
 
 const IkonPanah = () => (
@@ -100,7 +100,7 @@ export default function App() {
             </h1>
             <p className="lead rise" style={{ animationDelay: "0.08s" }}>
               Setiap petugas piket mencatat <strong>jam mulai</strong> dan <strong>jam selesai</strong> bertugas lewat
-              scan QR di layar loket, lengkap dengan <strong>foto kelengkapan atribut</strong>.
+              presensi.html, lengkap dengan <strong>foto kelengkapan atribut</strong>.
             </p>
 
             <p className="subhead rise" style={{ animationDelay: "0.14s" }}>

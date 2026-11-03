@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Quick Test API - SIPELOK</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+    .box { border: 2px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+    .success { background: #d4edda; border-color: #28a745; }
+    .error { background: #f8d7da; border-color: #dc3545; }
+    .info { background: #d1ecf1; border-color: #17a2b8; }
+    button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+    button:hover { background: #0056b3; }
+    pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    code { background: #e9ecef; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Quick Test API - SIPELOK</h1>
+  <p>Halaman ini tidak menggunakan <code>util.js</code> untuk memastikan masalah bukan dari cache JavaScript.</p>
+  
+  <div class="box info">
+    <h3>📍 Informasi Halaman</h3>
+    <p><strong>URL:</strong> <code id="url"></code></p>
+    <p><strong>Path:</strong> <code id="path"></code></p>
+    <p><strong>API yang akan dicoba:</strong> <code id="apiUrl"></code></p>
+  </div>
+
+  <div class="box">
+    <h3>🧪 Test 1: Direct Fetch (Tanpa util.js)</h3>
+    <button onclick="testDirectFetch()">Test Direct Fetch</button>
+    <div id="result1"></div>
+  </div>
+
+  <div class="box">
+    <h3>🧪 Test 2: XMLHttpRequest (Tanpa util.js)</h3>
+    <button onclick="testXHR()">Test XMLHttpRequest</button>
+    <div id="result2"></div>
+  </div>
+
+  <div class="box">
+    <h3>🧪 Test 3: POST Request (Seperti Presensi)</h3>
+    <button onclick="testPost()">Test POST Request</button>
+    <div id="result3"></div>
+  </div>
+
+  <div class="box">
+    <h3>💡 Solusi</h3>
+    <div id="solutions"></div>
+  </div>
+
+  <script>
+    // Detect API path
+    const path = window.location.pathname;
+    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+    const API = basePath + 'api/api.php';
+    const API_KEY = "sipelok-konawe-2024";
+
+    // Display info
+    document.getElementById('url').textContent = window.location.href;
+    document.getElementById('path').textContent = path;
+    document.getElementById('apiUrl').textContent = window.location.origin + API;
+
+    // Test 1: Direct Fetch
+    async function testDirectFetch() {
+      const resultDiv = document.getElementById('result1');
+      resultDiv.innerHTML = '<p>Testing...</p>';
+
+      try {
+        const response = await fetch(API + '?action=ping', {
+          method: 'GET',
+          headers: {
+            'X-Sipelok-Key': API_KEY
+          }
+        });
+
+        const text = await response.text();
+        
+        // Check if HTML
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: Server mengembalikan HTML</h3>
+            <p><strong>Status:</strong> ${response.status}</p>
+            <p><strong>Content-Type:</strong> ${response.headers.get('content-type')}</p>
+            <p><strong>Response (200 chars):</strong></p>
+            <pre>${text.substring(0, 200)}...</pre>
+            <p><strong>Kesimpulan:</strong> File api.php tidak ada di lokasi: <code>${API}</code></p>
+          `;
+          return;
+        }
+
+        const data = JSON.parse(text);
+        
+        if (data.ok) {
+          resultDiv.className = 'box success';
+          resultDiv.innerHTML = `
+            <h3>✅ SUCCESS: API berfungsi normal</h3>
+            <p><strong>Status:</strong> ${response.status}</p>
+            <p><strong>Response:</strong></p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: API mengembalikan error</h3>
+            <p><strong>Status:</strong> ${response.status}</p>
+            <p><strong>Error:</strong> ${data.error || 'Unknown'}</p>
+          `;
+        }
+      } catch (e) {
+        resultDiv.className = 'box error';
+        resultDiv.innerHTML = `
+          <h3>❌ ERROR: ${e.message}</h3>
+          <p>Kemungkinan penyebab:</p>
+          <ul>
+            <li>File api.php tidak ada</li>
+            <li>Server tidak dapat diakses</li>
+            <li>CORS error</li>
+          </ul>
+        `;
+      }
+    }
+
+    // Test 2: XMLHttpRequest
+    function testXHR() {
+      const resultDiv = document.getElementById('result2');
+      resultDiv.innerHTML = '<p>Testing...</p>';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', API + '?action=ping', true);
+      xhr.setRequestHeader('X-Sipelok-Key', API_KEY);
+      
+      xhr.onload = function() {
+        const text = xhr.responseText;
+        
+        // Check if HTML
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: Server mengembalikan HTML</h3>
+            <p><strong>Status:</strong> ${xhr.status}</p>
+            <p><strong>Response (200 chars):</strong></p>
+            <pre>${text.substring(0, 200)}...</pre>
+            <p><strong>Kesimpulan:</strong> File api.php tidak ada di lokasi: <code>${API}</code></p>
+          `;
+          return;
+        }
+
+        try {
+          const data = JSON.parse(text);
+          
+          if (data.ok) {
+            resultDiv.className = 'box success';
+            resultDiv.innerHTML = `
+              <h3>✅ SUCCESS: API berfungsi normal</h3>
+              <p><strong>Status:</strong> ${xhr.status}</p>
+              <p><strong>Response:</strong></p>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+          } else {
+            resultDiv.className = 'box error';
+            resultDiv.innerHTML = `
+              <h3>❌ ERROR: API mengembalikan error</h3>
+              <p><strong>Status:</strong> ${xhr.status}</p>
+              <p><strong>Error:</strong> ${data.error || 'Unknown'}</p>
+            `;
+          }
+        } catch (e) {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: Parse JSON gagal</h3>
+            <p><strong>Error:</strong> ${e.message}</p>
+            <p><strong>Response:</strong></p>
+            <pre>${text.substring(0, 200)}...</pre>
+          `;
+        }
+      };
+      
+      xhr.onerror = function() {
+        resultDiv.className = 'box error';
+        resultDiv.innerHTML = `
+          <h3>❌ ERROR: Network error</h3>
+          <p>Tidak dapat terhubung ke server</p>
+        `;
+      };
+      
+      xhr.send();
+    }
+
+    // Test 3: POST Request
+    function testPost() {
+      const resultDiv = document.getElementById('result3');
+      resultDiv.innerHTML = '<p>Testing...</p>';
+
+      const testData = [{
+        id: 'test_' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        shift: 1,
+        petugasId: 'test_petugas',
+        nama: 'Test User',
+        masuk: new Date().toISOString(),
+        keluar: null,
+        fotoMasuk: null,
+        fotoKeluar: null
+      }];
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', API + '?action=save&table=records', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('X-Sipelok-Key', API_KEY);
+      
+      xhr.onload = function() {
+        const text = xhr.responseText;
+        
+        // Check if HTML
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: Server mengembalikan HTML</h3>
+            <p><strong>Status:</strong> ${xhr.status}</p>
+            <p><strong>Response (200 chars):</strong></p>
+            <pre>${text.substring(0, 200)}...</pre>
+            <p><strong>Kesimpulan:</strong> File api.php tidak ada di lokasi: <code>${API}</code></p>
+          `;
+          return;
+        }
+
+        try {
+          const data = JSON.parse(text);
+          
+          if (data.ok) {
+            resultDiv.className = 'box success';
+            resultDiv.innerHTML = `
+              <h3>✅ SUCCESS: POST request berhasil</h3>
+              <p><strong>Status:</strong> ${xhr.status}</p>
+              <p><strong>Response:</strong></p>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+              <p><strong>Catatan:</strong> Data test telah disimpan. ID: ${testData[0].id}</p>
+            `;
+          } else {
+            resultDiv.className = 'box error';
+            resultDiv.innerHTML = `
+              <h3>❌ ERROR: POST request gagal</h3>
+              <p><strong>Status:</strong> ${xhr.status}</p>
+              <p><strong>Error:</strong> ${data.error || 'Unknown'}</p>
+            `;
+          }
+        } catch (e) {
+          resultDiv.className = 'box error';
+          resultDiv.innerHTML = `
+            <h3>❌ ERROR: Parse JSON gagal</h3>
+            <p><strong>Error:</strong> ${e.message}</p>
+            <p><strong>Response:</strong></p>
+            <pre>${text.substring(0, 200)}...</pre>
+          `;
+        }
+      };
+      
+      xhr.onerror = function() {
+        resultDiv.className = 'box error';
+        resultDiv.innerHTML = `
+          <h3>❌ ERROR: Network error</h3>
+          <p>Tidak dapat terhubung ke server</p>
+        `;
+      };
+      
+      xhr.send(JSON.stringify(testData));
+    }
+
+    // Generate solutions
+    function generateSolutions() {
+      const solutionsDiv = document.getElementById('solutions');
+      
+      solutionsDiv.innerHTML = `
+        <h4>Jika semua test GAGAL:</h4>
+        <ol>
+          <li>
+            <strong>File api.php tidak ada di server</strong><br>
+            Solusi: Upload file <code>api/api.php</code> ke server di lokasi: <code>${API}</code>
+          </li>
+          <li>
+            <strong>Struktur folder berbeda</strong><br>
+            Solusi: Edit file <code>js/util.js</code> dan ubah fungsi <code>getApiPath()</code>:
+            <pre>function getApiPath() {
+  return '/path/ke/api/api.php';
+}</pre>
+          </li>
+          <li>
+            <strong>Browser cache lama</strong><br>
+            Solusi: Clear cache browser (Ctrl+Shift+Delete) dan hard refresh (Ctrl+Shift+R)
+          </li>
+        </ol>
+
+        <h4>Jika semua test BERHASIL:</h4>
+        <ol>
+          <li>
+            <strong>Browser menggunakan cache lama util.js</strong><br>
+            Solusi: Clear cache browser dan hard refresh
+          </li>
+          <li>
+            <strong>File util.js belum ter-update</strong><br>
+            Solusi: Upload file <code>js/util.js</code> yang baru ke server
+          </li>
+        </ol>
+
+        <h4>Langkah Debugging:</h4>
+        <ol>
+          <li>Buka Console browser (F12)</li>
+          <li>Lihat error message</li>
+          <li>Periksa Network tab untuk melihat request/response</li>
+          <li>Test URL API langsung di browser: <a href="${API}?action=ping" target="_blank">${API}?action=ping</a></li>
+        </ol>
+      `;
+    }
+
+    generateSolutions();
+  </script>
+</body>
+</html>

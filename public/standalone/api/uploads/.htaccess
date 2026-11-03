@@ -1,0 +1,25 @@
+# Proteksi folder uploads
+# Hanya izinkan akses ke file gambar
+
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Blokir akses ke file lain
+<FilesMatch "\.(php|html|htm|js|css|sql|log|txt)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Disable directory listing
+Options -Indexes
+
+# Set expiration untuk cache
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+</IfModule>
