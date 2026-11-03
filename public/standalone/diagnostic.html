@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnostik API - SIPELOK</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #f2691f;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #555;
+      margin-top: 30px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background: #f2691f;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #d9550f;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #ddd;
+    }
+    th {
+      background: #f2691f;
+      color: white;
+    }
+    .status-icon {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .status-ok {
+      background: #28a745;
+    }
+    .status-error {
+      background: #dc3545;
+    }
+    .status-warning {
+      background: #ffc107;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Diagnostik API SIPELOK</h1>
+    <p>Halaman ini akan membantu Anda mengidentifikasi masalah koneksi ke API PHP.</p>
+    
+    <div class="test-section">
+      <h3>📍 Informasi Halaman</h3>
+      <table>
+        <tr>
+          <th>Property</th>
+          <th>Value</th>
+        </tr>
+        <tr>
+          <td>URL Halaman Ini</td>
+          <td id="pageUrl"></td>
+        </tr>
+        <tr>
+          <td>Path Halaman</td>
+          <td id="pagePath"></td>
+        </tr>
+        <tr>
+          <td>Origin</td>
+          <td id="pageOrigin"></td>
+        </tr>
+        <tr>
+          <td>API Path (Auto-Detect)</td>
+          <td id="apiPath"></td>
+        </tr>
+        <tr>
+          <td>API URL Lengkap</td>
+          <td id="apiUrl"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="test-section">
+      <h3>🧪 Test 1: Akses Langsung ke API</h3>
+      <p>Klik tombol di bawah untuk membuka API langsung di tab baru. Ini akan menunjukkan apakah file api.php dapat diakses.</p>
+      <button onclick="testDirectAccess()">Test Akses Langsung</button>
+      <div id="directResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>🧪 Test 2: Ping API (GET Request)</h3>
+      <p>Test apakah API merespons dengan benar menggunakan method GET.</p>
+      <button onclick="testPing()">Test Ping</button>
+      <div id="pingResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>🧪 Test 3: Save API (POST Request)</h3>
+      <p>Test apakah API dapat menerima data menggunakan method POST (seperti saat submit presensi).</p>
+      <button onclick="testPost()">Test POST</button>
+      <div id="postResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>🧪 Test 4: Cek Struktur Folder</h3>
+      <p>Test berbagai kemungkinan lokasi file api.php.</p>
+      <button onclick="testFolderStructure()">Test Struktur Folder</button>
+      <div id="folderResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>📊 Ringkasan Diagnostik</h3>
+      <button onclick="runAllTests()">Jalankan Semua Test</button>
+      <div id="summary"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>💡 Solusi</h3>
+      <div id="solutions"></div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-detect API path
+    function getApiPath() {
+      const path = window.location.pathname;
+      const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+      return basePath + 'api/api.php';
+    }
+
+    const API = getApiPath();
+    const API_KEY = "sipelok-konawe-2024";
+
+    // Display page info
+    document.getElementById('pageUrl').textContent = window.location.href;
+    document.getElementById('pagePath').textContent = window.location.pathname;
+    document.getElementById('pageOrigin').textContent = window.location.origin;
+    document.getElementById('apiPath').textContent = API;
+    document.getElementById('apiUrl').textContent = window.location.origin + API;
+
+    // Test 1: Direct Access
+    function testDirectAccess() {
+      const resultDiv = document.getElementById('directResult');
+      resultDiv.innerHTML = '<div class="info">Membuka API di tab baru...</div>';
+      
+      const apiUrl = window.location.origin + API + '?action=ping';
+      window.open(apiUrl, '_blank');
+      
+      resultDiv.innerHTML = `
+        <div class="info">
+          <strong>URL yang dibuka:</strong><br>
+          ${apiUrl}<br><br>
+          <strong>Instruksi:</strong><br>
+          1. Lihat tab baru yang terbuka<br>
+          2. Jika muncul JSON dengan "ok": true → API berfungsi normal<br>
+          3. Jika muncul HTML 404 → File api.php tidak ada di lokasi tersebut<br>
+          4. Jika muncul error PHP → Ada masalah di kode PHP
+        </div>
+      `;
+    }
+
+    // Test 2: Ping
+    async function testPing() {
+      const resultDiv = document.getElementById('pingResult');
+      resultDiv.innerHTML = '<div class="info">Testing...</div>';
+      
+      try {
+        const response = await fetch(API + '?action=ping', {
+          method: 'GET',
+          headers: {
+            'X-Sipelok-Key': API_KEY
+          }
+        });
+        
+        const responseText = await response.text();
+        
+        // Check if HTML
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+          resultDiv.innerHTML = `
+            <div class="error">
+              <strong>❌ ERROR: Server mengembalikan HTML, bukan JSON</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Content-Type:</strong> ${response.headers.get('content-type')}<br><br>
+              <strong>Response (200 karakter pertama):</strong><br>
+              ${responseText.substring(0, 200)}...<br><br>
+              <strong>Kesimpulan:</strong> File api.php tidak ada atau server mengembalikan error page.
+            </div>
+          `;
+          return;
+        }
+        
+        const data = JSON.parse(responseText);
+        
+        if (data.ok) {
+          resultDiv.innerHTML = `
+            <div class="success">
+              <strong>✅ SUCCESS: API berfungsi normal</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Response:</strong><br>
+              ${JSON.stringify(data, null, 2)}
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="error">
+              <strong>❌ ERROR: API mengembalikan error</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Error:</strong> ${data.error || 'Unknown error'}
+            </div>
+          `;
+        }
+      } catch (e) {
+        resultDiv.innerHTML = `
+          <div class="error">
+            <strong>❌ ERROR: ${e.message}</strong><br><br>
+            Kemungkinan penyebab:<br>
+            1. File api.php tidak ada<br>
+            2. Server tidak dapat diakses<br>
+            3. Ada masalah CORS
+          </div>
+        `;
+      }
+    }
+
+    // Test 3: POST
+    async function testPost() {
+      const resultDiv = document.getElementById('postResult');
+      resultDiv.innerHTML = '<div class="info">Testing...</div>';
+      
+      try {
+        const testData = [{
+          id: 'test_' + Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          shift: 1,
+          petugasId: 'test_petugas',
+          nama: 'Test User',
+          masuk: new Date().toISOString(),
+          keluar: null,
+          fotoMasuk: null,
+          fotoKeluar: null
+        }];
+        
+        const response = await fetch(API + '?action=save&table=records', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sipelok-Key': API_KEY
+          },
+          body: JSON.stringify(testData)
+        });
+        
+        const responseText = await response.text();
+        
+        // Check if HTML
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+          resultDiv.innerHTML = `
+            <div class="error">
+              <strong>❌ ERROR: Server mengembalikan HTML, bukan JSON</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Content-Type:</strong> ${response.headers.get('content-type')}<br><br>
+              <strong>Response (200 karakter pertama):</strong><br>
+              ${responseText.substring(0, 200)}...<br><br>
+              <strong>Kesimpulan:</strong> File api.php tidak ada atau server mengembalikan error page.
+            </div>
+          `;
+          return;
+        }
+        
+        const data = JSON.parse(responseText);
+        
+        if (data.ok) {
+          resultDiv.innerHTML = `
+            <div class="success">
+              <strong>✅ SUCCESS: POST request berhasil</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Response:</strong><br>
+              ${JSON.stringify(data, null, 2)}<br><br>
+              <strong>Catatan:</strong> Data test telah disimpan ke database. Anda bisa menghapusnya nanti.
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="error">
+              <strong>❌ ERROR: POST request gagal</strong><br><br>
+              <strong>HTTP Status:</strong> ${response.status}<br>
+              <strong>Error:</strong> ${data.error || 'Unknown error'}
+            </div>
+          `;
+        }
+      } catch (e) {
+        resultDiv.innerHTML = `
+          <div class="error">
+            <strong>❌ ERROR: ${e.message}</strong><br><br>
+            Kemungkinan penyebab:<br>
+            1. File api.php tidak ada<br>
+            2. Server tidak dapat diakses<br>
+            3. Ada masalah CORS<br>
+            4. API key tidak valid
+          </div>
+        `;
+      }
+    }
+
+    // Test 4: Folder Structure
+    async function testFolderStructure() {
+      const resultDiv = document.getElementById('folderResult');
+      resultDiv.innerHTML = '<div class="info">Testing berbagai lokasi...</div>';
+      
+      const locations = [
+        { path: 'api/api.php', desc: 'Relative path dari halaman ini' },
+        { path: '/api/api.php', desc: 'Absolute path dari root domain' },
+        { path: '/standalone/api/api.php', desc: 'Jika aplikasi di folder /standalone/' },
+        { path: window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/api/api.php', desc: 'Path dinamis berdasarkan lokasi halaman' }
+      ];
+      
+      let html = '<table><tr><th>Status</th><th>Path</th><th>Deskripsi</th><th>HTTP Status</th></tr>';
+      
+      for (const loc of locations) {
+        try {
+          const fullUrl = window.location.origin + loc.path;
+          const response = await fetch(fullUrl + '?action=ping', { method: 'GET' });
+          const responseText = await response.text();
+          
+          let status = '❌';
+          let statusClass = 'error';
+          
+          if (responseText.trim().startsWith('{')) {
+            try {
+              const data = JSON.parse(responseText);
+              if (data.ok) {
+                status = '✅';
+                statusClass = 'success';
+              }
+            } catch (e) {
+              // Not valid JSON
+            }
+          }
+          
+          html += `<tr>
+            <td>${status}</td>
+            <td><code>${loc.path}</code></td>
+            <td>${loc.desc}</td>
+            <td>${response.status}</td>
+          </tr>`;
+        } catch (e) {
+          html += `<tr>
+            <td>❌</td>
+            <td><code>${loc.path}</code></td>
+            <td>${loc.desc}</td>
+            <td>Error: ${e.message}</td>
+          </tr>`;
+        }
+      }
+      
+      html += '</table>';
+      resultDiv.innerHTML = html;
+    }
+
+    // Run all tests
+    async function runAllTests() {
+      const summaryDiv = document.getElementById('summary');
+      summaryDiv.innerHTML = '<div class="info">Menjalankan semua test...</div>';
+      
+      await testPing();
+      await testPost();
+      await testFolderStructure();
+      
+      summaryDiv.innerHTML = `
+        <div class="info">
+          <strong>✅ Semua test telah dijalankan</strong><br><br>
+          Lihat hasil di setiap section di atas.<br><br>
+          <strong>Langkah selanjutnya:</strong><br>
+          1. Jika Test 1 (Direct Access) menunjukkan 404 → File api.php tidak ada<br>
+          2. Jika Test 2 (Ping) berhasil tapi Test 3 (POST) gagal → Masalah di kode PHP<br>
+          3. Jika Test 4 menunjukkan path yang benar → Update util.js dengan path tersebut
+        </div>
+      `;
+      
+      // Generate solutions
+      generateSolutions();
+    }
+
+    // Generate solutions based on test results
+    function generateSolutions() {
+      const solutionsDiv = document.getElementById('solutions');
+      
+      solutionsDiv.innerHTML = `
+        <div class="warning">
+          <strong>⚠️ Kemungkinan Solusi:</strong><br><br>
+          
+          <strong>1. File api.php tidak ada di lokasi yang benar</strong><br>
+          Solusi: Upload file api.php ke folder yang sesuai<br>
+          <code>
+            ${window.location.origin}${API}
+          </code><br><br>
+          
+          <strong>2. Struktur folder berbeda</strong><br>
+          Solusi: Edit file <code>js/util.js</code> dan ubah fungsi <code>getApiPath()</code>:<br>
+          <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+function getApiPath() {
+  // Ganti dengan path yang sesuai
+  return '/path/ke/api/api.php';
+}
+          </pre><br>
+          
+          <strong>3. Server LiteSpeed mengembalikan HTML 404 dengan status 200</strong><br>
+          Solusi: Periksa konfigurasi .htaccess atau hubungi admin server<br><br>
+          
+          <strong>4. Permission file salah</strong><br>
+          Solusi: Set permission file api.php ke 644:<br>
+          <code>chmod 644 api/api.php</code><br><br>
+          
+          <strong>5. PHP error di server</strong><br>
+          Solusi: Periksa error log PHP di server:<br>
+          <code>tail -f /var/log/php_errors.log</code>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

@@ -1,8 +1,12 @@
 /* ============================================================
    SIPELOK — util.js  (dipakai semua halaman, tanpa npm)
+   Versi: 2.0.0 - Fixed 404 HTML Detection
    Dua mode:  db  -> PHP+MySQL   |   local -> localStorage (demo)
    ============================================================ */
 "use strict";
+
+const UTIL_VERSION = "2.0.0";
+console.log("📦 SIPELOK util.js version:", UTIL_VERSION);
 
 // Auto-detect API path berdasarkan lokasi halaman
 function getApiPath() {
@@ -94,6 +98,33 @@ async function http(action, opts) {
   try {
     const r = await fetch(url, init);
     
+    // PENTING: Baca response sebagai text dulu untuk cek apakah HTML
+    const responseText = await r.text();
+    
+    // Cek apakah response adalah HTML error page
+    const isHtmlResponse = responseText.trim().startsWith('<!DOCTYPE') || 
+                           responseText.trim().startsWith('<html') ||
+                           responseText.includes('<title>404') ||
+                           responseText.includes('Not Found');
+    
+    if (isHtmlResponse) {
+      const errorMsg = `Server mengembalikan HTML, bukan JSON.\n\n` +
+        `URL: ${url}\n` +
+        `HTTP Status: ${r.status}\n\n` +
+        `Ini berarti:\n` +
+        `1. File api.php tidak ada di server (404)\n` +
+        `2. Server mengembalikan error page\n` +
+        `3. Ada error PHP yang menampilkan HTML\n\n` +
+        `Response (200 karakter pertama):\n${responseText.substring(0, 200)}...\n\n` +
+        `SOLUSI:\n` +
+        `- Pastikan folder 'api' ada di lokasi yang sama dengan file HTML\n` +
+        `- Pastikan file 'api.php' ada di folder 'api/'\n` +
+        `- Test URL ini di browser: ${url}`;
+      
+      console.error("HTTP HTML Response Error:", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     // Cek status HTTP
     if (r.status === 404) {
       const errorMsg = `File API tidak ditemukan (404). URL: ${url}\n\n` +
@@ -115,21 +146,20 @@ async function http(action, opts) {
       throw new Error(errorMsg);
     }
     
-    // Cek apakah response adalah JSON
-    const contentType = r.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await r.text();
-      const errorMsg = `Response bukan JSON. Content-Type: ${contentType}\n\n` +
-        `Response: ${text.substring(0, 200)}...\n\n` +
-        `Kemungkinan penyebab:\n` +
-        `1. File api.php mengembalikan HTML error page\n` +
-        `2. Ada error PHP yang tidak tertangkap\n` +
-        `3. File api.php tidak ada (404)`;
-      console.error("Non-JSON Response:", errorMsg);
+    // Sekarang parse sebagai JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      const errorMsg = `Gagal parse response sebagai JSON.\n\n` +
+        `URL: ${url}\n` +
+        `HTTP Status: ${r.status}\n` +
+        `Parse Error: ${parseError.message}\n\n` +
+        `Response (200 karakter pertama):\n${responseText.substring(0, 200)}...`;
+      console.error("JSON Parse Error:", errorMsg);
       throw new Error(errorMsg);
     }
     
-    const data = await r.json();
     if (!data.ok) {
       console.error("HTTP Error:", action, data);
     }
@@ -187,7 +217,40 @@ function httpWithProgress(action, opts, onProgress) {
         console.log("Status:", xhr.status);
         console.log("Response:", xhr.responseText);
         
-        // Cek 404 terlebih dahulu
+        // PENTING: Cek apakah response adalah HTML SEBELUM parse JSON
+        // Beberapa server (termasuk LiteSpeed) mengembalikan status 200 tapi dengan HTML error page
+        const responseText = xhr.responseText || '';
+        const isHtmlResponse = responseText.trim().startsWith('<!DOCTYPE') || 
+                               responseText.trim().startsWith('<html') ||
+                               responseText.includes('<title>404') ||
+                               responseText.includes('Not Found');
+        
+        if (isHtmlResponse) {
+          const errorMsg = `Server mengembalikan HTML, bukan JSON.\n\n` +
+            `URL: ${url}\n` +
+            `HTTP Status: ${xhr.status}\n\n` +
+            `Ini berarti:\n` +
+            `1. File api.php tidak ada di server (404)\n` +
+            `2. Server mengembalikan error page\n` +
+            `3. Ada error PHP yang menampilkan HTML\n\n` +
+            `Response (200 karakter pertama):\n${responseText.substring(0, 200)}...\n\n` +
+            `SOLUSI:\n` +
+            `- Pastikan folder 'api' ada di lokasi yang sama dengan file HTML\n` +
+            `- Pastikan file 'api.php' ada di folder 'api/'\n` +
+            `- Test URL ini di browser: ${url}\n` +
+            `- Lihat console browser (F12) untuk detail`;
+          
+          console.error("=== httpWithProgress HTML RESPONSE ERROR ===");
+          console.error(errorMsg);
+          
+          if (onProgress) {
+            onProgress({ percent: 100, status: "✗ File API tidak ditemukan", error: true });
+          }
+          reject(new Error(errorMsg));
+          return; // Jangan retry untuk HTML response
+        }
+        
+        // Cek 404 status
         if (xhr.status === 404) {
           const errorMsg = `File API tidak ditemukan (404).\n\n` +
             `URL: ${url}\n\n` +
@@ -207,7 +270,7 @@ function httpWithProgress(action, opts, onProgress) {
             onProgress({ percent: 100, status: "✗ File API tidak ditemukan (404)", error: true });
           }
           reject(new Error(errorMsg));
-          return; // Jangan retry untuk 404
+          return;
         }
         
         // Cek 500 error
@@ -220,9 +283,10 @@ function httpWithProgress(action, opts, onProgress) {
             onProgress({ percent: 100, status: "✗ Server error (500)", error: true });
           }
           reject(new Error(errorMsg));
-          return; // Jangan retry untuk 500
+          return;
         }
         
+        // Sekarang aman untuk parse JSON
         try {
           const data = JSON.parse(xhr.responseText);
           console.log("Parsed data:", data);

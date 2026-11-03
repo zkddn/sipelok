@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/gaya.css" />
+<link rel="stylesheet" href="css/gaya.css?v=2.0.0" />
 <style>
   .jenis { display: flex; gap: 8px; }
   .jenis label { flex: 1; }
@@ -75,7 +75,29 @@
 </script>
 <div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--mist-300)"><span class="spin" style="font-size:1.6rem">◌</span>&nbsp; Memuat…</div></div>
 
-<script src="js/util.js"></script>
+<script src="js/util.js?v=2.0.0"></script>
+<script>
+  // Version check
+  if (typeof UTIL_VERSION === 'undefined') {
+    document.getElementById('app').innerHTML = `
+      <div style="max-width:600px;margin:50px auto;padding:30px;background:#fff3cd;border:2px solid #ffc107;border-radius:8px;font-family:sans-serif">
+        <h2 style="color:#856404;margin-top:0">⚠️ Browser Cache Lama Terdeteksi</h2>
+        <p style="color:#856404">File JavaScript yang dimuat adalah versi lama.</p>
+        <p style="color:#856404"><strong>Solusi:</strong></p>
+        <ol style="color:#856404">
+          <li>Tekan <strong>Ctrl + Shift + Delete</strong> (Windows) atau <strong>Cmd + Shift + Delete</strong> (Mac)</li>
+          <li>Pilih "Cached images and files"</li>
+          <li>Time range: "All time"</li>
+          <li>Klik "Clear data"</li>
+          <li>Refresh halaman ini dengan <strong>Ctrl + Shift + R</strong></li>
+        </ol>
+        <p style="color:#856404">Atau buka halaman ini di <strong>Incognito/Private mode</strong> untuk test.</p>
+      </div>
+    `;
+  } else {
+    console.log("✓ util.js version:", UTIL_VERSION);
+  }
+</script>
 <script>
   let foto = null, hasil = null;
 
